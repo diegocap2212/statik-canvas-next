@@ -1,6 +1,6 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const MODEL = "gemini-1.5-pro";
+const MODEL = "gemini-2.5-flash";
 
 export async function callGemini(
   systemPrompt: string,

@@ -94,7 +94,7 @@ Observações IA por etapa: ${JSON.stringify(session.aiCache, null, 2)}`;
   } catch (parseError) {
     console.error("JSON parse failed. Raw response was:", rawResult);
     const fixPrompt = `O texto abaixo deveria ser um JSON válido mas não é. Corrija-o e retorne APENAS o JSON, sem nenhum texto adicional:\n\n${rawResult}`;
-    const fixed = await callClaude("Retorne apenas JSON válido, sem markdown.", fixPrompt, 2048);
+    const fixed = await callGemini("Retorne apenas JSON válido, sem markdown.", fixPrompt, 2048);
     const fixedClean = fixed.replace(/```json|```/gi, "").trim();
     diagnosis = JSON.parse(fixedClean);
   }

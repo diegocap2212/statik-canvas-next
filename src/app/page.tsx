@@ -1,65 +1,99 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Sparkles, ArrowRight, Bot, LayoutDashboard } from "lucide-react";
+import { createSession } from "./actions";
+import Link from "next/link";
+
+export default function HomePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    const product = formData.get("product") as string;
+    const facilitator = formData.get("facilitator") as string;
+    const context = formData.get("context") as string;
+
+    try {
+      const session = await createSession(product, facilitator, context);
+      router.push(`/session/${session.id}`);
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
+    }
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <main className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center p-8">
+      <div className="max-w-md w-full text-center">
+        <div className="w-20 h-20 bg-[#F5F4FF] text-[#534AB7] rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
+          <Sparkles size={40} />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+        
+        <h1 className="text-4xl font-serif text-gray-900 mb-2">IA Statik Canvas</h1>
+        <p className="text-gray-400 font-bold text-[10px] tracking-[0.2em] uppercase mb-12">Powered By Diego Caporusso</p>
+
+        <form onSubmit={handleSubmit} className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-gray-100 text-left space-y-6">
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Produto ou Serviço</label>
+            <input 
+              name="product"
+              required
+              className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-[#534AB7]/20 transition-all font-medium"
+              placeholder="Ex: App de Logística"
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Facilitador</label>
+              <input 
+                name="facilitator"
+                className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-[#534AB7]/20 transition-all font-medium"
+                placeholder="Seu nome"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Data</label>
+              <input 
+                className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none text-gray-300 font-medium cursor-default"
+                value={new Date().toLocaleDateString("pt-BR")}
+                readOnly
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-400 uppercase tracking-wide">Contexto Adicional</label>
+            <textarea 
+              name="context"
+              rows={3}
+              className="w-full p-4 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-[#534AB7]/20 transition-all font-medium resize-none"
+              placeholder="Descreva o momento do time..."
+            />
+          </div>
+
+          <button 
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#534AB7] text-white py-5 rounded-[2rem] font-bold shadow-lg shadow-[#534AB7]/20 hover:bg-[#4339A3] transition-all flex items-center justify-center gap-3 active:scale-95 disabled:opacity-50"
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            {loading ? "Iniciando..." : <span>Iniciar Sessão <ArrowRight size={20} className="inline ml-1" /></span>}
+          </button>
+        </form>
+
+        <Link 
+            href="/dashboard"
+            className="mt-12 inline-flex items-center gap-2 text-sm font-bold text-gray-400 hover:text-[#534AB7] transition-colors"
+        >
+            <LayoutDashboard size={18} /> Ver histórico de sessões
+        </Link>
+      </div>
+    </main>
   );
 }

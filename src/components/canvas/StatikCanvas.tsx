@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  ChevronLeft, ChevronRight, Wand2, ArrowLeft, 
-  Save, LayoutDashboard, Copy, Printer 
+import {
+  ChevronLeft, ChevronRight, ArrowLeft,
+  LayoutDashboard, Printer
 } from "lucide-react";
 
 import { TagInput } from "./TagInput";
@@ -15,9 +15,13 @@ import { ClassGrid } from "./ClassGrid";
 import { AiBubble } from "./AiBubble";
 
 import { updateSessionData, getAiObservation, generateFinalDiagnosis } from "@/app/actions";
+import { sessions } from "@/db/schema";
+
+type Session = typeof sessions.$inferSelect;
+type SessionData = NonNullable<Session["data"]>;
 
 interface StatikCanvasProps {
-  session: any; // Using simplified type for now
+  session: Session;
 }
 
 const STEPS = [
@@ -31,28 +35,42 @@ const STEPS = [
   { id: 8, label: "Diagnóstico", title: "Diagnóstico IA" },
 ];
 
+const DEFAULT_DATA: SessionData = {
+  tagsInternal: [],
+  tagsExternal: [],
+  demands: [],
+  cadences: [],
+  workflow: ["Backlog", "Em andamento", "Pausado", "Entregue"],
+  classes: [],
+  steps: {},
+};
+
 export function StatikCanvas({ session }: StatikCanvasProps) {
   const router = useRouter();
   const [cur, setCur] = useState(1);
-  const [data, setData] = useState(session.data || {
-    tagsInternal: [],
-    tagsExternal: [],
-    demands: [],
-    cadences: [],
-    workflow: ["Backlog", "Em andamento", "Pausado", "Entregue"],
-    steps: {},
-  });
-  const [aiCache, setAiCache] = useState<Record<number, string>>(session.aiCache || {});
+  const [data, setData] = useState<SessionData>(session.data ?? DEFAULT_DATA);
+  const [aiCache, setAiCache] = useState<Record<number, string>>(
+    (session.aiCache as Record<number, string>) ?? {}
+  );
   const [loadingAi, setLoadingAi] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [aiError, setAiError] = useState(false);
   const [diagnosis, setDiagnosis] = useState(session.diagnosis);
 
   // Auto-save logic
   useEffect(() => {
     const timer = setTimeout(async () => {
       setSaving(true);
-      await updateSessionData(session.id, data);
-      setSaving(false);
+      setSaveError(false);
+      try {
+        await updateSessionData(session.id, data);
+      } catch (e) {
+        console.error(e);
+        setSaveError(true);
+      } finally {
+        setSaving(false);
+      }
     }, 2000);
     return () => clearTimeout(timer);
   }, [data, session.id]);
@@ -64,7 +82,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
   };
 
   const updateStepVal = (field: string, val: string) => {
-    setData((prev: any) => ({
+    setData((prev) => ({
       ...prev,
       steps: { ...prev.steps, [field]: val }
     }));
@@ -75,11 +93,13 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
     if (!content || loadingAi === stepId) return;
 
     setLoadingAi(stepId);
+    setAiError(false);
     try {
       const result = await getAiObservation(session.id, stepId, content);
       setAiCache(prev => ({ ...prev, [stepId]: result }));
     } catch (e) {
       console.error(e);
+      setAiError(true);
     } finally {
       setLoadingAi(null);
     }
@@ -87,11 +107,13 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
   const handleGenerateDiagnosis = async () => {
     setLoadingAi(8);
+    setAiError(false);
     try {
       const result = await generateFinalDiagnosis(session.id);
       setDiagnosis(result);
     } catch (e) {
       console.error(e);
+      setAiError(true);
     } finally {
       setLoadingAi(null);
     }
@@ -135,7 +157,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                 <span>{((cur/8)*100).toFixed(0)}%</span>
              </div>
              <div className="h-1.5 w-full bg-gray-50 rounded-full overflow-hidden">
-                <motion.div 
+                <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${(cur/8)*100}%` }}
                     className="h-full bg-[#1D9E75]"
@@ -152,6 +174,8 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
              </button>
              <div className="flex items-center gap-3">
                 {saving && <span className="text-[10px] font-bold text-gray-400 animate-pulse">SALVANDO...</span>}
+                {saveError && <span className="text-[10px] font-bold text-red-400">ERRO AO SALVAR</span>}
+                {aiError && <span className="text-[10px] font-bold text-red-400">ERRO NA IA</span>}
                 <div className="bg-white border px-4 py-2 rounded-full text-[11px] font-bold shadow-sm">
                    {session.productName}
                 </div>
@@ -159,7 +183,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
           </div>
 
           <AnimatePresence mode="wait">
-            <motion.div 
+            <motion.div
                 key={cur}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -179,7 +203,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                       <div className="space-y-6">
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Quem é o cliente e o que você faz por ele?</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-32 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s1Purpose || ""}
                                 onChange={(e) => updateStepVal("s1Purpose", e.target.value)}
@@ -188,7 +212,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                          </div>
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Definição de sucesso</label>
-                            <input 
+                            <input
                                 className="w-full p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all"
                                 value={data.steps.s1Success || ""}
                                 onChange={(e) => updateStepVal("s1Success", e.target.value)}
@@ -202,24 +226,24 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                          <div className="grid grid-cols-2 gap-8">
                             <div className="space-y-2">
                                <label className="text-xs font-bold text-[#1D9E75] uppercase">Insatisfações Internas</label>
-                               <TagInput 
-                                    type="internal" 
-                                    tags={data.tagsInternal} 
-                                    onChange={(tags) => setData((p: any) => ({ ...p, tagsInternal: tags }))} 
+                               <TagInput
+                                    type="internal"
+                                    tags={data.tagsInternal}
+                                    onChange={(tags) => setData((p) => ({ ...p, tagsInternal: tags }))}
                                 />
                             </div>
                             <div className="space-y-2">
                                <label className="text-xs font-bold text-[#D85A30] uppercase">Insatisfações Externas</label>
-                               <TagInput 
-                                    type="external" 
-                                    tags={data.tagsExternal} 
-                                    onChange={(tags) => setData((p: any) => ({ ...p, tagsExternal: tags }))} 
+                               <TagInput
+                                    type="external"
+                                    tags={data.tagsExternal}
+                                    onChange={(tags) => setData((p) => ({ ...p, tagsExternal: tags }))}
                                 />
                             </div>
                          </div>
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Pontos mais críticos</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s2Priority || ""}
                                 onChange={(e) => updateStepVal("s2Priority", e.target.value)}
@@ -231,14 +255,14 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
                    {cur === 3 && (
                       <div className="space-y-8">
-                        <StatikTable 
+                        <StatikTable
                             headers={["Tipo de demanda", "De onde vem?", "Quem recebe?", "Frequência", "SLA/Expectativa"]}
                             rows={data.demands}
-                            onChange={(rows) => setData((p: any) => ({ ...p, demands: rows }))}
+                            onChange={(rows) => setData((p) => ({ ...p, demands: rows }))}
                         />
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Demandas difíceis de prever</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s3Unpredictable || ""}
                                 onChange={(e) => updateStepVal("s3Unpredictable", e.target.value)}
@@ -253,7 +277,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                          <div className="grid grid-cols-2 gap-8">
                             <div className="space-y-2">
                                <label className="text-xs font-bold text-gray-400 uppercase">Lead Time (Média)</label>
-                               <input 
+                               <input
                                     className="w-full p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all"
                                     value={data.steps.s4Leadtime || ""}
                                     onChange={(e) => updateStepVal("s4Leadtime", e.target.value)}
@@ -261,7 +285,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                             </div>
                             <div className="space-y-2">
                                <label className="text-xs font-bold text-gray-400 uppercase">Throughput (Entregas)</label>
-                               <input 
+                               <input
                                     className="w-full p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all"
                                     value={data.steps.s4Throughput || ""}
                                     onChange={(e) => updateStepVal("s4Throughput", e.target.value)}
@@ -270,7 +294,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                          </div>
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Gargalos evidentes</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s4Bottleneck || ""}
                                 onChange={(e) => updateStepVal("s4Bottleneck", e.target.value)}
@@ -282,10 +306,10 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
                    {cur === 5 && (
                       <div className="space-y-8">
-                         <ClassGrid selected={data.classes || []} onChange={(cls) => setData((p: any) => ({ ...p, classes: cls }))} />
+                         <ClassGrid selected={data.classes || []} onChange={(cls) => setData((p) => ({ ...p, classes: cls }))} />
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Como priorizamos hoje?</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s5Priority || ""}
                                 onChange={(e) => updateStepVal("s5Priority", e.target.value)}
@@ -297,10 +321,10 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
                    {cur === 6 && (
                       <div className="space-y-8">
-                         <WorkflowEditor stages={data.workflow} onChange={(s) => setData((p: any) => ({ ...p, workflow: s }))} />
+                         <WorkflowEditor stages={data.workflow} onChange={(s) => setData((p) => ({ ...p, workflow: s }))} />
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Tipos de demanda com fluxos diferentes?</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s6Diff || ""}
                                 onChange={(e) => updateStepVal("s6Diff", e.target.value)}
@@ -312,14 +336,14 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
                    {cur === 7 && (
                       <div className="space-y-8">
-                        <StatikTable 
+                        <StatikTable
                             headers={["Nome da cadência", "Frequência", "Propósito", "Está funcionando?"]}
                             rows={data.cadences}
-                            onChange={(rows) => setData((p: any) => ({ ...p, cadences: rows }))}
+                            onChange={(rows) => setData((p) => ({ ...p, cadences: rows }))}
                         />
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Feedback loops ausentes?</label>
-                            <textarea 
+                            <textarea
                                 className="w-full h-24 p-4 bg-white border border-gray-100 rounded-2xl outline-none focus:border-[#534AB7] transition-all resize-none"
                                 value={data.steps.s7Missing || ""}
                                 onChange={(e) => updateStepVal("s7Missing", e.target.value)}
@@ -335,7 +359,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                             <div className="absolute top-0 left-0 w-2 h-full bg-[#534AB7]" />
                             <h2 className="text-[11px] font-extrabold text-[#534AB7] uppercase tracking-widest mb-6">VISÃO SISTÊMICA</h2>
                             <p className="text-2xl font-serif text-gray-900 mb-12 leading-tight">{diagnosis.overview}</p>
-                            
+
                             <div className="grid grid-cols-2 gap-12">
                                <div>
                                   <h3 className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest mb-6">PADRÕES OBSERVADOS</h3>
@@ -375,8 +399,8 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                    ) : <div />}
 
                    {cur < 8 ? (
-                      <button 
-                        onClick={() => goTo(cur + 1)} 
+                      <button
+                        onClick={() => goTo(cur + 1)}
                         className="bg-[#534AB7] text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 hover:bg-[#4339A3] transition-all shadow-lg active:scale-95"
                       >
                          Próxima Etapa <ChevronRight size={20} />

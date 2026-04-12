@@ -36,6 +36,7 @@ export async function seedSampleSession() {
         ["Retro", "Quinzenal", "Melhoria", "Não"]
       ],
       workflow: ["Backlog", "Design", "Dev", "Review", "Prod"],
+      classes: [],
       steps: {
         s1Purpose: "Otimizar a última milha da entrega de e-commerce.",
         s1Success: "Lead time médio abaixo de 5 dias.",
@@ -65,6 +66,7 @@ export async function seedSampleSession() {
     },
     isDone: true
   }).returning();
+
 
   return session;
 }

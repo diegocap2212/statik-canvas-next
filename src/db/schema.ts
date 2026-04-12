@@ -8,7 +8,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
-  id: text("id").primaryKey(), // We'll use Google's ID or a unique string
+  id: text("id").primaryKey(),
   name: text("name"),
   email: text("email").notNull().unique(),
   image: text("image"),
@@ -23,22 +23,22 @@ export const sessions = pgTable("sessions", {
   productName: text("product_name").notNull(),
   facilitator: text("facilitator"),
   context: text("context"),
-  
-  // STATIK Step Data
-  // We store complex state (tables, tags, workflow) in JSONB for flexibility
+
   data: jsonb("data").$type<{
     tagsInternal: string[];
     tagsExternal: string[];
     demands: string[][];
     cadences: string[][];
     workflow: string[];
-    steps: Record<string, any>; // Stores purpose, capacity, etc.
+    classes: string[];
+    steps: Record<string, string>;
   }>().default({
     tagsInternal: [],
     tagsExternal: [],
     demands: [],
     cadences: [],
     workflow: ["Backlog", "Em andamento", "Pausado", "Entregue"],
+    classes: [],
     steps: {},
   }),
 

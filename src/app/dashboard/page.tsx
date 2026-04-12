@@ -1,6 +1,6 @@
 import { getUserSessions } from "@/app/actions";
 import Link from "next/link";
-import { Plus, Clock, FileText, Bot } from "lucide-react";
+import { Plus, Clock, FileText, Bot, ChevronRight } from "lucide-react";
 
 export default async function DashboardPage() {
   const sessions = await getUserSessions();
@@ -61,8 +61,4 @@ export default async function DashboardPage() {
       </div>
     </div>
   );
-}
-
-function ChevronRight({ size }: { size: number }) {
-  return <path d="m9 18 6-6-6-6" fill="none" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" />;
 }

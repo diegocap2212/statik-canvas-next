@@ -1,5 +1,5 @@
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const MODEL = "claude-sonnet-4-6";
+const MODEL = "claude-3-5-sonnet-20240620";
 const DEFAULT_TIMEOUT_MS = 30_000;
 
 export async function callClaude(

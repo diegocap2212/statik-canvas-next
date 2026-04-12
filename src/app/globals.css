@@ -1,6 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+@theme {
+  --color-purple: #534AB7;
+  --color-teal: #1D9E75;
+  --color-coral: #D85A30;
+  --color-amber: #EF9F27;
+  --color-bg: #FAFAF8;
+  --font-serif: var(--font-dm-serif);
+  --font-sans: var(--font-dm-sans);
+}
 
 :root {
   --bg: #FAFAF8;

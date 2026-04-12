@@ -1,4 +1,7 @@
 import { seedSampleSession } from "./seed";
+import * as dotenv from "dotenv";
+
+dotenv.config({ path: ".env.local" });
 
 async function main() {
   console.log("🌱 Iniciando carga de dados de exemplo...");

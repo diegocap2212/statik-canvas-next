@@ -1,3 +1,7 @@
+/**
+ * Gemini SDK Integration
+ * Using Gemini 2.5 Flash as the default high-performance model.
+ */
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 const MODEL = "gemini-2.5-flash";

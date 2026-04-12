@@ -8,7 +8,8 @@ const MODEL = "gemini-2.5-flash";
 
 export async function callGemini(
   systemPrompt: string,
-  userMessage: string
+  userMessage: string,
+  maxTokens?: number
 ): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
 
@@ -19,7 +20,10 @@ export async function callGemini(
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
     model: MODEL,
-    systemInstruction: systemPrompt 
+    systemInstruction: systemPrompt,
+    generationConfig: {
+      maxOutputTokens: maxTokens
+    }
   });
 
   try {

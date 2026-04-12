@@ -2,8 +2,8 @@
 
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
-import { eq } from "drizzle-orm";
-import { callClaude, FACILITATOR_PROMPT, DIAGNOSIS_PROMPT } from "@/lib/anthropic";
+import { eq, desc } from "drizzle-orm";
+import { callGemini, FACILITATOR_PROMPT, DIAGNOSIS_PROMPT } from "@/lib/gemini";
 
 // Temporary mock user ID until Google Auth is implemented
 const MOCK_USER_ID = "diego-caporusso-mock";
@@ -56,7 +56,7 @@ export async function getAiObservation(
 
   const userMsg = `Produto: ${session.productName}. Contexto: ${session.context ?? "não informado"}. Etapa ${step}: ${content}.\nDados de suporte da sessão: ${JSON.stringify(session.data)}`;
 
-  const observation = await callClaude(FACILITATOR_PROMPT, userMsg);
+  const observation = await callGemini(FACILITATOR_PROMPT, userMsg);
 
   // Cache the result in the DB
   const newCache = { ...(session.aiCache as Record<number, string> ?? {}), [step]: observation };
@@ -78,7 +78,7 @@ Contexto: ${session.context ?? "não informado"}
 Dados completos: ${JSON.stringify(session.data, null, 2)}
 Observações IA por etapa: ${JSON.stringify(session.aiCache, null, 2)}`;
 
-  const rawResult = await callClaude(DIAGNOSIS_PROMPT, summary, 2048);
+  const rawResult = await callGemini(DIAGNOSIS_PROMPT, summary, 2048);
 
   // Robust JSON parsing — strips any accidental markdown fences
   const clean = rawResult
@@ -109,8 +109,9 @@ Observações IA por etapa: ${JSON.stringify(session.aiCache, null, 2)}`;
 
 export async function getUserSessions() {
   await ensureMockUser();
-  return db.query.sessions.findMany({
-    where: eq(sessions.userId, MOCK_USER_ID),
-    orderBy: (sessions, { desc }) => [desc(sessions.createdAt)],
-  });
+  return db
+    .select()
+    .from(sessions)
+    .where(eq(sessions.userId, MOCK_USER_ID))
+    .orderBy(desc(sessions.createdAt));
 }

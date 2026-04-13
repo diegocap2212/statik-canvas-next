@@ -102,7 +102,7 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
             strokeLinejoin="round"
             className="opacity-70 drop-shadow-sm"
           />
-          {/* Lead Time Data Points (subtle dots) */}
+          {/* Lead Time Data Points (subtle dots with explicit numbers) */}
           {data.map((d, i) => {
             const cx = PAD + i * (chartW / data.length) + (chartW / data.length) / 2;
             const cy = PAD + chartH - (d.leadTime / maxLt) * chartH;
@@ -115,21 +115,37 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
                   fill="white" 
                   stroke="#534AB7" 
                   strokeWidth="2"
-                  className="opacity-90 transition-all hover:r-6"
+                  className="opacity-90"
                 />
-                {/* Tooltip-like text on hover could go here or fallback to simple display */}
+                
                 {d.leadTime > 0 && (
-                  <text 
-                    x={cx} 
-                    y={cy - 12} 
-                    textAnchor="middle" 
-                    fontSize="9" 
-                    fill="#534AB7" 
-                    fontWeight="bold"
-                    className="opacity-0 hover:opacity-100 transition-opacity"
-                  >
-                    {d.leadTime.toFixed(1)}d
-                  </text>
+                  <>
+                    {/* Outline (Stroke) for readability over bars */}
+                    <text 
+                      x={cx} 
+                      y={cy - 10} 
+                      textAnchor="middle" 
+                      fontSize="10" 
+                      fontWeight="bold"
+                      stroke="white"
+                      strokeWidth="3"
+                      strokeLinejoin="round"
+                    >
+                      {d.leadTime.toFixed(1)}d
+                    </text>
+                    
+                    {/* Inner Text */}
+                    <text 
+                      x={cx} 
+                      y={cy - 10} 
+                      textAnchor="middle" 
+                      fontSize="10" 
+                      fill="#534AB7" 
+                      fontWeight="extrabold"
+                    >
+                      {d.leadTime.toFixed(1)}d
+                    </text>
+                  </>
                 )}
               </g>
             );

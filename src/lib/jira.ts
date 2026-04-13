@@ -105,7 +105,7 @@ export async function fetchJiraIssues() {
           jql: "project = OTE ORDER BY created DESC",
           maxResults: maxResults,
           ...(pageToken ? { nextPageToken: pageToken } : {}),
-          expand: ["changelog"],
+          expand: "changelog",
           fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority", "statuscategorychangedate"]
         }),
         signal: controller.signal,

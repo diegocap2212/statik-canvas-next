@@ -13,8 +13,10 @@ function getJiraConfig() {
 
 function getAuthHeaders() {
   const { email, token } = getJiraConfig();
+  // Ensure we don't have spaces or odd chars in the base64
+  const auth = Buffer.from(`${(email || "").trim()}:${(token || "").trim()}`).toString("base64");
   return {
-    "Authorization": `Basic ${Buffer.from(`${email}:${token}`).toString("base64")}`,
+    "Authorization": `Basic ${auth}`,
     "Accept": "application/json",
     "Content-Type": "application/json",
     "User-Agent": "StatikCanvas/1.0 (Integration/FlowMetrics)"
@@ -46,18 +48,17 @@ export interface InsightsData {
 export async function fetchJiraIssues() {
   const { token, domain } = getJiraConfig();
   if (!token) {
-    return { issues: [], statusCategoryMap: {}, error: "JIRA_API_TOKEN não configurado." };
+    return { issues: [], statusCategoryMap: {}, error: "JIRA_API_TOKEN não configurado. Verifique as variáveis de ambiente." };
   }
 
   const issues: any[] = [];
-  let pageToken: string | null = null;
   const maxResults = 100;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s for multi-step fetch
+    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
 
-    // 1. Get Project Statuses for category mapping
+    // 1. Get Project Statuses (Compliant GET)
     const statusUrl = `https://${domain}/rest/api/3/project/OTE/statuses`;
     const statusRes = await fetch(statusUrl, {
       headers: getAuthHeaders(),
@@ -66,84 +67,56 @@ export async function fetchJiraIssues() {
     });
     
     if (!statusRes.ok) {
-      throw new Error(`Falha ao conectar com o Jira (HTTP ${statusRes.status}): ${statusRes.statusText}`);
+      if (statusRes.status === 401) throw new Error("Falha na autenticação (401). Verifique seu Token Jira.");
+      throw new Error(`Erro ao conectar (HTTP ${statusRes.status})`);
     }
     const statusData = await statusRes.json();
-    
     const statusCategoryMap: Record<string, string> = {};
-    statusData.forEach((type: any) => {
-      type.statuses.forEach((s: any) => {
-        statusCategoryMap[s.name] = s.statusCategory.key;
+    if (Array.isArray(statusData)) {
+      statusData.forEach((type: any) => {
+        type.statuses?.forEach((s: any) => {
+          statusCategoryMap[s.name] = s.statusCategory.key;
+        });
       });
-    });
+    }
 
-    // 2. Fetch issue IDs using the new JQL Search API (POST)
-    let searchRes: any;
-    while (true) {
-      const url = `https://${domain}/rest/api/3/search/jql`;
-      searchRes = await fetch(url, {
+    // 2. Fetch Issues using the only working Search API (POST /search/jql)
+    // We use token-based pagination to collect ALL historical data.
+    const searchUrl = `https://${domain}/rest/api/3/search/jql`;
+    let pageToken: string | undefined = undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const searchRes = await fetch(searchUrl, {
         method: "POST",
         headers: getAuthHeaders(),
         body: JSON.stringify({
           jql: "project = OTE ORDER BY created DESC",
           maxResults: maxResults,
-          fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority"],
-          ...(pageToken ? { nextPageToken: pageToken } : {})
+          ...(pageToken ? { nextPageToken: pageToken } : {}),
+          fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority", "statuscategorychangedate"]
         }),
         signal: controller.signal,
         cache: 'no-store'
       });
 
       if (!searchRes.ok) {
-        const errorBody = await searchRes.text();
-        throw new Error(`Jira API Search Error: ${searchRes.statusText} - ${errorBody}`);
+        throw new Error(`Jira Search Error: ${searchRes.statusText}`);
       }
 
       const searchData: any = await searchRes.json();
-      if (!Array.isArray(searchData.issues)) {
-        throw new Error(`Resposta inesperada da API Jira Search: campo 'issues' ausente ou inválido.`);
+      if (searchData.issues) {
+        issues.push(...searchData.issues);
       }
-      issues.push(...searchData.issues);
-
-      if (searchData.isLast || !searchData.nextPageToken) break;
+      
       pageToken = searchData.nextPageToken;
+      hasMore = !!pageToken;
     }
 
-    // 3. Enrich issues with full fields and changelogs (Two-Step process)
-    const enrichIssues = async (issueStub: any) => {
-      try {
-        const issueUrl = `https://${domain}/rest/api/3/issue/${issueStub.id}?expand=changelog`;
-        const res = await fetch(issueUrl, {
-          headers: getAuthHeaders(),
-          signal: controller.signal,
-          cache: 'no-store'
-        });
-        if (res.ok) {
-          const fullData = await res.json();
-          // Update the original stub with full data for the metrics engine
-          issueStub.fields = fullData.fields;
-          issueStub.changelog = fullData.changelog;
-          issueStub.key = fullData.key;
-        }
-      } catch (err) {
-        console.error(`Failed to enrich issue ${issueStub.id}:`, err);
-      }
-    };
-
-    // Parallel fetch with limited concurrency (batch size of 15) to maintain speed
-    const batchSize = 15;
-    for (let i = 0; i < issues.length; i += batchSize) {
-      const batch = issues.slice(i, i + batchSize);
-      await Promise.all(batch.map(enrichIssues));
-    }
-
-    if (controller.signal.aborted) {
-      return { issues: [], statusCategoryMap: {}, error: "Timeout ao enriquecer dados do Jira (20s). O projeto pode ter muitas issues." };
-    }
     clearTimeout(timeoutId);
     return { issues, statusCategoryMap, error: null };
   } catch (err: any) {
-    if (err.name === "AbortError") return { issues: [], statusCategoryMap: {}, error: "Timeout ao conectar com o Jira (20s)." };
+    if (err.name === "AbortError") return { issues: [], statusCategoryMap: {}, error: "Timeout: O Jira excedeu o tempo limite de 15s." };
     return { issues: [], statusCategoryMap: {}, error: err.message };
   }
 }
@@ -217,6 +190,12 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       const lt = (resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
       totalLeadTimeForEfficiency += lt;
       efficiencySamples++;
+    } else if (resolved && issue.fields.statuscategorychangedate) {
+      // Fallback: If changelog was truncated/missing, use statuscategorychangedate 
+      // as a proxy for entrance in the final category (approximate but stable)
+      const lastChange = new Date(issue.fields.statuscategorychangedate);
+      const ct = Math.max(0.1, (resolved.getTime() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
+      cycleTimes.push(ct);
     }
 
     // 3. WIP

@@ -1,14 +1,17 @@
-/**
- * Jira API Client & Flow Metrics Calculation Logic
- */
-
-const JIRA_DOMAIN = process.env.JIRA_DOMAIN || "otmow-team.atlassian.net";
-const JIRA_EMAIL = process.env.JIRA_EMAIL || "suporte@otmow.com";
-const JIRA_API_TOKEN = process.env.Statik_API || process.env.JIRA_API_TOKEN;
-
 import { callGemini } from "./gemini";
 
-const AUTH_HEADER = `Basic ${Buffer.from(`${JIRA_EMAIL}:${JIRA_API_TOKEN}`).toString("base64")}`;
+function getJiraConfig() {
+  return {
+    domain: process.env.JIRA_DOMAIN || "otmow-team.atlassian.net",
+    email: process.env.JIRA_EMAIL || "suporte@otmow.com",
+    token: process.env.Statik_API || process.env.JIRA_API_TOKEN
+  };
+}
+
+function getAuthHeader() {
+  const { email, token } = getJiraConfig();
+  return `Basic ${Buffer.from(`${email}:${token}`).toString("base64")}`;
+}
 
 export interface FlowMetrics {
   leadTime: { avg: number; p50: number; p85: number; p95: number; samples: number };
@@ -33,7 +36,8 @@ export interface InsightsData {
  * Fetch issues from Jira project OTE with changelog
  */
 export async function fetchJiraIssues() {
-  if (!JIRA_API_TOKEN) {
+  const { token } = getJiraConfig();
+  if (!token) {
     return { issues: [], statusCategoryMap: {}, error: "JIRA_API_TOKEN não configurado." };
   }
 
@@ -46,11 +50,13 @@ export async function fetchJiraIssues() {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     // Get Project Statuses first for category mapping
-    const statusUrl = `https://${JIRA_DOMAIN}/rest/api/3/project/OTE/statuses`;
+    const { domain } = getJiraConfig();
+    const statusUrl = `https://${domain}/rest/api/3/project/OTE/statuses`;
     
     const statusRes = await fetch(statusUrl, {
-      headers: { "Authorization": AUTH_HEADER, "Accept": "application/json" },
-      signal: controller.signal
+      headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+      signal: controller.signal,
+      cache: 'no-store'
     });
     
     if (!statusRes.ok) {
@@ -67,11 +73,13 @@ export async function fetchJiraIssues() {
     });
 
     while (true) {
-      const url = `https://${JIRA_DOMAIN}/rest/api/3/search?jql=project = OTE ORDER BY created DESC&expand=changelog&fields=summary,status,issuetype,priority,created,resolutiondate,assignee&maxResults=${maxResults}&startAt=${startAt}`;
+      const { domain } = getJiraConfig();
+      const url = `https://${domain}/rest/api/3/search?jql=project = OTE ORDER BY created DESC&expand=changelog&fields=summary,status,issuetype,priority,created,resolutiondate,assignee&maxResults=${maxResults}&startAt=${startAt}`;
       
       const response = await fetch(url, {
-        headers: { "Authorization": AUTH_HEADER, "Accept": "application/json" },
-        signal: controller.signal
+        headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+        signal: controller.signal,
+        cache: 'no-store'
       });
 
       if (!response.ok) throw new Error(`Jira API Error: ${response.statusText}`);

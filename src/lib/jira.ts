@@ -72,7 +72,7 @@ export async function fetchJiraIssues() {
     // 2. Fetch issues keys and basic fields using the new JQL Search API
     while (true) {
       const url = `https://${domain}/rest/api/3/search/jql`;
-      const response = await fetch(url, {
+      const searchRes = await fetch(url, {
         method: "POST",
         headers: { 
           "Authorization": getAuthHeader(), 
@@ -88,12 +88,12 @@ export async function fetchJiraIssues() {
         cache: 'no-store'
       });
 
-      if (!response.ok) {
-        const errorBody = await response.text();
-        throw new Error(`Jira API Search Error: ${response.statusText} - ${errorBody}`);
+      if (!searchRes.ok) {
+        const errorBody = await searchRes.text();
+        throw new Error(`Jira API Search Error: ${searchRes.statusText} - ${errorBody}`);
       }
 
-      const data = await response.json();
+      const data = await searchRes.json();
       issues.push(...data.issues);
 
       if (data.isLast || !data.nextPageToken) break;

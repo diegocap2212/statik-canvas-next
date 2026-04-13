@@ -36,23 +36,21 @@ export interface InsightsData {
  * Fetch issues from Jira project OTE with changelog
  */
 export async function fetchJiraIssues() {
-  const { token } = getJiraConfig();
+  const { token, domain } = getJiraConfig();
   if (!token) {
     return { issues: [], statusCategoryMap: {}, error: "JIRA_API_TOKEN não configurado." };
   }
 
   const issues: any[] = [];
-  let startAt = 0;
+  let pageToken: string | null = null;
   const maxResults = 100;
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s for multi-step fetch
 
-    // Get Project Statuses first for category mapping
-    const { domain } = getJiraConfig();
+    // 1. Get Project Statuses for category mapping
     const statusUrl = `https://${domain}/rest/api/3/project/OTE/statuses`;
-    
     const statusRes = await fetch(statusUrl, {
       headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
       signal: controller.signal,
@@ -64,7 +62,6 @@ export async function fetchJiraIssues() {
     }
     const statusData = await statusRes.json();
     
-    // Flatten statuses into a map: name -> statusCategory.key
     const statusCategoryMap: Record<string, string> = {};
     statusData.forEach((type: any) => {
       type.statuses.forEach((s: any) => {
@@ -72,31 +69,69 @@ export async function fetchJiraIssues() {
       });
     });
 
+    // 2. Fetch issues keys and basic fields using the new JQL Search API
     while (true) {
-      const { domain } = getJiraConfig();
-      const url = `https://${domain}/rest/api/3/search?jql=project = OTE ORDER BY created DESC&expand=changelog&fields=summary,status,issuetype,priority,created,resolutiondate,assignee&maxResults=${maxResults}&startAt=${startAt}`;
-      
+      const url = `https://${domain}/rest/api/3/search/jql`;
       const response = await fetch(url, {
-        headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+        method: "POST",
+        headers: { 
+          "Authorization": getAuthHeader(), 
+          "Accept": "application/json",
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          jql: "project = OTE ORDER BY created DESC",
+          maxResults: maxResults,
+          ...(pageToken ? { nextPageToken: pageToken } : {})
+        }),
         signal: controller.signal,
         cache: 'no-store'
       });
 
-      if (!response.ok) throw new Error(`Jira API Error: ${response.statusText}`);
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Jira API Search Error: ${response.statusText} - ${errorBody}`);
+      }
 
       const data = await response.json();
       issues.push(...data.issues);
 
-      if (issues.length >= data.total || data.issues.length === 0) break;
-      startAt += maxResults;
+      if (data.isLast || !data.nextPageToken) break;
+      pageToken = data.nextPageToken;
+    }
+
+    // 3. Enrich issues with full fields and changelogs (Two-Step process)
+    const enrichIssues = async (issueStub: any) => {
+      try {
+        const issueUrl = `https://${domain}/rest/api/3/issue/${issueStub.id}?expand=changelog`;
+        const res = await fetch(issueUrl, {
+          headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+          signal: controller.signal,
+          cache: 'no-store'
+        });
+        if (res.ok) {
+          const fullData = await res.json();
+          // Update the original stub with full data for the metrics engine
+          issueStub.fields = fullData.fields;
+          issueStub.changelog = fullData.changelog;
+          issueStub.key = fullData.key;
+        }
+      } catch (err) {
+        console.error(`Failed to enrich issue ${issueStub.id}:`, err);
+      }
+    };
+
+    // Parallel fetch with limited concurrency (batch size of 15) to maintain speed
+    const batchSize = 15;
+    for (let i = 0; i < issues.length; i += batchSize) {
+      const batch = issues.slice(i, i + batchSize);
+      await Promise.all(batch.map(enrichIssues));
     }
 
     clearTimeout(timeoutId);
-    
-    // Attach statusCategoryMap to issues for calculation helper
     return { issues, statusCategoryMap, error: null };
   } catch (err: any) {
-    if (err.name === "AbortError") return { issues: [], statusCategoryMap: {}, error: "Timeout ao conectar com o Jira (15s)." };
+    if (err.name === "AbortError") return { issues: [], statusCategoryMap: {}, error: "Timeout ao conectar com o Jira (20s)." };
     return { issues: [], statusCategoryMap: {}, error: err.message };
   }
 }

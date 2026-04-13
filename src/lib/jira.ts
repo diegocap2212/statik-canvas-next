@@ -1,4 +1,4 @@
-import { callGemini } from "./gemini";
+import { callClaude } from "./anthropic";
 
 function getJiraConfig() {
   const sanitize = (val?: string) => val?.trim().replace(/^\uFEFF/, "");
@@ -34,6 +34,12 @@ export interface FlowMetrics {
     todo: { type: string; count: number }[];
   };
   flowEfficiency: number;
+  monteCarlo?: {
+    backlogSize: number;
+    p50Weeks: number;
+    p85Weeks: number;
+    p95Weeks: number;
+  };
 }
 
 export interface Opportunity {
@@ -99,6 +105,7 @@ export async function fetchJiraIssues() {
           jql: "project = OTE ORDER BY created DESC",
           maxResults: maxResults,
           ...(pageToken ? { nextPageToken: pageToken } : {}),
+          expand: ["changelog"],
           fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority", "statuscategorychangedate"]
         }),
         signal: controller.signal,
@@ -224,6 +231,32 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
 
   const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
+  // Monte Carlo Calculation
+  const recentThroughputs = Object.values(completedLast12Weeks).map(w => w.count);
+  const backlogSize = Object.values(demoMap.todo).reduce((a, b) => a + b, 0);
+  
+  let monteCarlo;
+  if (backlogSize > 0 && recentThroughputs.some(c => c > 0)) {
+    const samples: number[] = [];
+    for (let i = 0; i < 1000; i++) {
+      let remaining = backlogSize;
+      let weeksGen = 0;
+      while (remaining > 0 && weeksGen < 100) {
+        const t = recentThroughputs[Math.floor(Math.random() * recentThroughputs.length)];
+        remaining -= t;
+        weeksGen++;
+      }
+      samples.push(weeksGen);
+    }
+    samples.sort((a, b) => a - b);
+    monteCarlo = {
+      backlogSize,
+      p50Weeks: percentile(samples, 0.5),
+      p85Weeks: percentile(samples, 0.85),
+      p95Weeks: percentile(samples, 0.95)
+    };
+  }
+
   return {
     leadTime: {
       avg: avg(leadTimes),
@@ -254,7 +287,8 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     },
     flowEfficiency: efficiencySamples > 0 && totalLeadTimeForEfficiency > 0 
       ? (totalActiveTime / totalLeadTimeForEfficiency) * 100 
-      : 0
+      : 0,
+    monteCarlo
   };
 }
 
@@ -277,9 +311,11 @@ function getStartOfWeek(date: Date): Date {
 }
 
 const JIRA_INSIGHTS_PROMPT = `Você é um consultor sênior em Kanban e STATIK (Systems Thinking Approach to Introducing Kanban).
-Analise as métricas de fluxo fornecidas e retorne APENAS um JSON válido:
-{"summary":"2-3 frases sobre saúde geral do fluxo","opportunities":[{"title":"título curto","description":"explicação prática de 2-3 frases","statikStep":"etapa STATIK relacionada"}]}
-REGRAS: Responda em português. Nada fora do JSON. Sem markdown.`;
+Analise as métricas de fluxo fornecidas e retorne APENAS um JSON válido.
+O objetivo é trazer PROVOCAÇÕES e PERGUNTAS ao time, não afirmações absolutas. Desafie o status quo. Reflita sobre as variabilidades, gargalos, relação cycle time vs lead time e tamanho de WIP.
+Formato exato:
+{"summary":"2-3 frases com observações provocativas sobre a saúde geral do fluxo","opportunities":[{"title":"pergunta ou reflexão curta","description":"explicação de 2-3 frases com uma provocação baseada nos números para melhorar o sistema","statikStep":"etapa STATIK recomendada"}]}
+REGRAS: Responda em português. Apenas o JSON válido, sem markdown.`;
 
 export async function generateOpportunities(metrics: FlowMetrics): Promise<InsightsData> {
   const userMessage = `Métricas Atuais do Fluxo:
@@ -290,14 +326,14 @@ export async function generateOpportunities(metrics: FlowMetrics): Promise<Insig
   - Eficiência de Fluxo: ${metrics.flowEfficiency.toFixed(1)}%`;
 
   try {
-    const response = await callGemini(JIRA_INSIGHTS_PROMPT, userMessage);
+    const response = await callClaude(JIRA_INSIGHTS_PROMPT, userMessage);
     // Extract JSON if model returned markdown blocks (safety)
     const jsonStr = response.replace(/```json|```/g, "").trim();
     return JSON.parse(jsonStr);
   } catch (err) {
     console.error("Failed to generate opportunities:", err);
     return {
-      summary: "Não foi possível gerar a síntese automática no momento.",
+      summary: "Não foi possível gerar a síntese automática no momento. Verifique se o provedor de IA está configurado corretamente.",
       opportunities: []
     };
   }

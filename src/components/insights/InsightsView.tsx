@@ -6,6 +6,7 @@ import { ThroughputChart } from "@/components/insights/ThroughputChart";
 import { WipBoard } from "@/components/insights/WipBoard";
 import { OpportunityPanel } from "@/components/insights/OpportunityPanel";
 import { DemographicsBoard } from "@/components/insights/DemographicsBoard";
+import { ProbabilitiesCone } from "@/components/insights/ProbabilitiesCone";
 import { BarChart3, Clock, Zap, RefreshCw, AlertCircle } from "lucide-react";
 
 interface InsightsViewProps {
@@ -70,9 +71,14 @@ export function InsightsView({ metrics, opportunities, totalIssues }: InsightsVi
         </div>
       </div>
 
-      {/* New Section: Demographics */}
-      <div className="mb-12">
-        <DemographicsBoard data={metrics.demographics} />
+      {/* New Section: Demographics and Cone */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
+        <div className="lg:col-span-3">
+          <DemographicsBoard data={metrics.demographics} />
+        </div>
+        <div>
+          <ProbabilitiesCone data={metrics.monteCarlo} />
+        </div>
       </div>
 
       <section>

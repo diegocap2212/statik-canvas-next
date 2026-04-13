@@ -119,33 +119,20 @@ export function ThroughputChart({ data }: ThroughputChartProps) {
                 />
                 
                 {d.leadTime > 0 && (
-                  <>
-                    {/* Outline (Stroke) for readability over bars */}
-                    <text 
-                      x={cx} 
-                      y={cy - 10} 
-                      textAnchor="middle" 
-                      fontSize="10" 
-                      fontWeight="bold"
-                      stroke="white"
-                      strokeWidth="3"
-                      strokeLinejoin="round"
-                    >
-                      {d.leadTime.toFixed(1)}d
-                    </text>
-                    
-                    {/* Inner Text */}
-                    <text 
-                      x={cx} 
-                      y={cy - 10} 
-                      textAnchor="middle" 
-                      fontSize="10" 
-                      fill="#534AB7" 
-                      fontWeight="extrabold"
-                    >
-                      {d.leadTime.toFixed(1)}d
-                    </text>
-                  </>
+                  <text 
+                    x={cx} 
+                    y={cy - 12} 
+                    textAnchor="middle" 
+                    fontSize="13" 
+                    fill="#534AB7" 
+                    fontWeight="900"
+                    stroke="white"
+                    strokeWidth="4"
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
+                  >
+                    {d.leadTime.toFixed(1)}d
+                  </text>
                 )}
               </g>
             );

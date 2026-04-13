@@ -4,7 +4,7 @@
 
 const JIRA_DOMAIN = process.env.JIRA_DOMAIN || "otmow.atlassian.net";
 const JIRA_EMAIL = process.env.JIRA_EMAIL || "suporte@otmow.com";
-const JIRA_API_TOKEN = process.env.JIRA_API_TOKEN;
+const JIRA_API_TOKEN = process.env.Statik_API || process.env.JIRA_API_TOKEN;
 
 import { callGemini } from "./gemini";
 

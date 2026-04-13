@@ -26,8 +26,13 @@ function getAuthHeaders() {
 export interface FlowMetrics {
   leadTime: { avg: number; p50: number; p85: number; p95: number; samples: number };
   cycleTime: { avg: number; p50: number; p85: number; p95: number; samples: number };
-  throughput: { weeks: { label: string; count: number }[] };
+  throughput: { weeks: { label: string; count: number; leadTime: number }[] };
   wip: { stage: string; count: number }[];
+  demographics: {
+    done: { type: string; count: number }[];
+    wip: { type: string; count: number }[];
+    todo: { type: string; count: number }[];
+  };
   flowEfficiency: number;
 }
 
@@ -128,8 +133,9 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
   const now = new Date();
   const leadTimes: number[] = [];
   const cycleTimes: number[] = [];
-  const completedLast12Weeks: { [key: string]: number } = {};
+  const completedLast12Weeks: { [key: string]: { count: number; leadTimes: number[] } } = {};
   const wipStages: { [key: string]: number } = {};
+  const demoMap = { done: {} as Record<string, number>, wip: {} as Record<string, number>, todo: {} as Record<string, number> };
   
   // Weekly structure for throughput
   const weeks: string[] = [];
@@ -139,7 +145,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     const startOfWeek = getStartOfWeek(d);
     const label = `${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}`;
     weeks.push(label);
-    completedLast12Weeks[label] = 0;
+    completedLast12Weeks[label] = { count: 0, leadTimes: [] };
   }
 
   let totalActiveTime = 0;
@@ -150,6 +156,13 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     const created = new Date(issue.fields.created);
     const resolved = issue.fields.resolutiondate ? new Date(issue.fields.resolutiondate) : null;
     const statusKey = issue.fields.status.statusCategory.key;
+    const issueType = issue.fields.issuetype?.name || "Desconhecido";
+
+    // Demographics
+    let cat = "todo";
+    if (statusKey === "done") cat = "done";
+    else if (statusKey === "indeterminate") cat = "wip";
+    demoMap[cat as keyof typeof demoMap][issueType] = (demoMap[cat as keyof typeof demoMap][issueType] || 0) + 1;
 
     // 1. Lead Time
     if (resolved) {
@@ -160,7 +173,8 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       const startOfWeek = getStartOfWeek(resolved);
       const label = `${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}`;
       if (completedLast12Weeks[label] !== undefined) {
-        completedLast12Weeks[label]++;
+        completedLast12Weeks[label].count++;
+        completedLast12Weeks[label].leadTimes.push(lt);
       }
     }
 
@@ -226,9 +240,18 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       samples: cycleTimes.length
     },
     throughput: {
-      weeks: weeks.map(label => ({ label, count: completedLast12Weeks[label] }))
+      weeks: weeks.map(label => {
+        const d = completedLast12Weeks[label];
+        const avgLt = d.leadTimes.length ? d.leadTimes.reduce((a, b) => a + b, 0) / d.leadTimes.length : 0;
+        return { label, count: d.count, leadTime: avgLt };
+      })
     },
     wip: Object.entries(wipStages).map(([stage, count]) => ({ stage, count })),
+    demographics: {
+      done: Object.entries(demoMap.done).map(([type, count]) => ({ type, count })),
+      wip: Object.entries(demoMap.wip).map(([type, count]) => ({ type, count })),
+      todo: Object.entries(demoMap.todo).map(([type, count]) => ({ type, count }))
+    },
     flowEfficiency: efficiencySamples > 0 && totalLeadTimeForEfficiency > 0 
       ? (totalActiveTime / totalLeadTimeForEfficiency) * 100 
       : 0

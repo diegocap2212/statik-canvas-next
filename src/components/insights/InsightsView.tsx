@@ -5,6 +5,7 @@ import { MetricCard } from "@/components/insights/MetricCard";
 import { ThroughputChart } from "@/components/insights/ThroughputChart";
 import { WipBoard } from "@/components/insights/WipBoard";
 import { OpportunityPanel } from "@/components/insights/OpportunityPanel";
+import { DemographicsBoard } from "@/components/insights/DemographicsBoard";
 import { BarChart3, Clock, Zap, RefreshCw, AlertCircle } from "lucide-react";
 
 interface InsightsViewProps {
@@ -60,13 +61,18 @@ export function InsightsView({ metrics, opportunities, totalIssues }: InsightsVi
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
         <div className="lg:col-span-2">
           <ThroughputChart data={metrics.throughput.weeks} />
         </div>
         <div>
           <WipBoard data={metrics.wip} />
         </div>
+      </div>
+
+      {/* New Section: Demographics */}
+      <div className="mb-12">
+        <DemographicsBoard data={metrics.demographics} />
       </div>
 
       <section>

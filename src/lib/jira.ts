@@ -204,19 +204,13 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
 
     if (resolved && firstInProgress) {
       const ct = (resolved.getTime() - (firstInProgress as Date).getTime()) / (1000 * 60 * 60 * 24);
-      cycleTimes.push(ct);
+      cycleTimes.push(Math.max(0, ct));
       
       // For Flow Efficiency
       totalActiveTime += ct;
       const lt = (resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
       totalLeadTimeForEfficiency += lt;
       efficiencySamples++;
-    } else if (resolved && issue.fields.statuscategorychangedate) {
-      // Fallback: If changelog was truncated/missing, use statuscategorychangedate 
-      // as a proxy for entrance in the final category (approximate but stable)
-      const lastChange = new Date(issue.fields.statuscategorychangedate);
-      const ct = Math.max(0.1, (resolved.getTime() - lastChange.getTime()) / (1000 * 60 * 60 * 24));
-      cycleTimes.push(ct);
     }
 
     // 3. WIP

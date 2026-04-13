@@ -43,7 +43,7 @@ export function InsightsView({ metrics, opportunities, totalIssues }: InsightsVi
           value={metrics.cycleTime.avg}
           unit="Dias"
           percentiles={metrics.cycleTime}
-          description="Tempo ativo em 'In Progress'."
+          description="Tempo desde a primeira coluna In Progress (WIP)."
           color="#1D9E75"
         />
         <MetricCard 

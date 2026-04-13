@@ -51,6 +51,7 @@ export interface Opportunity {
 export interface InsightsData {
   summary: string;
   opportunities: Opportunity[];
+  naveComparison?: string;
 }
 
 /**
@@ -311,13 +312,20 @@ Formato exato:
 {"summary":"2-3 frases com observações provocativas sobre a saúde geral do fluxo","opportunities":[{"title":"pergunta ou reflexão curta","description":"explicação de 2-3 frases com uma provocação baseada nos números para melhorar o sistema","statikStep":"etapa STATIK recomendada"}]}
 REGRAS: Responda em português. Apenas o JSON válido, sem markdown.`;
 
-export async function generateOpportunities(metrics: FlowMetrics): Promise<InsightsData> {
-  const userMessage = `Métricas Atuais do Fluxo:
+export async function generateOpportunities(metrics: FlowMetrics, naveMetrics?: any): Promise<InsightsData> {
+  let userMessage = `Métricas Atuais do Fluxo (Jira):
   - Lead Time Médio: ${metrics.leadTime.avg.toFixed(1)} dias (p85: ${metrics.leadTime.p85.toFixed(1)})
   - Cycle Time Médio: ${metrics.cycleTime.avg.toFixed(1)} dias (p85: ${metrics.cycleTime.p85.toFixed(1)})
   - Throughput (últimas 12 semanas): ${metrics.throughput.weeks.map(w => w.count).join(", ")}
   - WIP Total: ${metrics.wip.reduce((acc, curr) => acc + curr.count, 0)} itens
   - Eficiência de Fluxo: ${metrics.flowEfficiency.toFixed(1)}%`;
+
+  if (naveMetrics) {
+    userMessage += `\n\nComparação com NAVE:
+    - NAVE Lead Time: ${naveMetrics.leadTime} dias
+    - NAVE Throughput: ${naveMetrics.throughput} itens/semana
+    - OBS: Se houver diferença significativa entre Jira e NAVE, comente no 'summary' ou crie uma oportunidade para investigar critérios de entrada/saída.`;
+  }
 
   try {
     const response = await callClaude(JIRA_INSIGHTS_PROMPT, userMessage);

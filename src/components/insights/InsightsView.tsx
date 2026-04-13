@@ -1,21 +1,23 @@
 "use client";
 
 import { FlowMetrics, InsightsData } from "@/lib/jira";
+import { NaveMetrics } from "@/lib/nave";
 import { MetricCard } from "@/components/insights/MetricCard";
 import { ThroughputChart } from "@/components/insights/ThroughputChart";
 import { WipBoard } from "@/components/insights/WipBoard";
 import { OpportunityPanel } from "@/components/insights/OpportunityPanel";
 import { DemographicsBoard } from "@/components/insights/DemographicsBoard";
 import { ProbabilitiesCone } from "@/components/insights/ProbabilitiesCone";
-import { BarChart3, Clock, Zap, RefreshCw, AlertCircle } from "lucide-react";
+import { BarChart3, Clock, Zap, RefreshCw, AlertCircle, TrendingUp, CheckCircle } from "lucide-react";
 
 interface InsightsViewProps {
   metrics: FlowMetrics;
   opportunities: InsightsData;
   totalIssues: number;
+  naveMetrics?: NaveMetrics | null;
 }
 
-export function InsightsView({ metrics, opportunities, totalIssues }: InsightsViewProps) {
+export function InsightsView({ metrics, opportunities, totalIssues, naveMetrics }: InsightsViewProps) {
   return (
     <div className="max-w-7xl mx-auto px-8 py-12">
       <header className="mb-12">
@@ -27,6 +29,36 @@ export function InsightsView({ metrics, opportunities, totalIssues }: InsightsVi
           Projeto OTE · {totalIssues} issues analisadas · {new Date().toLocaleDateString("pt-BR")}
         </p>
       </header>
+
+      {/* NAVE Cross-Validation Banner */}
+      {naveMetrics && (
+        <div className="mb-12 bg-white border border-[#1D9E75]/20 rounded-[2.5rem] p-8 shadow-sm flex flex-col md:flex-row items-center justify-between gap-8">
+          <div className="flex items-center gap-6">
+            <div className="bg-[#E1F5EE] p-4 rounded-3xl text-[#1D9E75]">
+              <TrendingUp size={32} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <CheckCircle size={14} className="text-[#1D9E75]" />
+                <span className="text-[10px] font-bold text-[#1D9E75] uppercase tracking-widest">Dados Validados via NAVE</span>
+              </div>
+              <h2 className="text-2xl font-serif text-gray-900">Métricas Consolidadas</h2>
+              <p className="text-sm text-gray-400">Comparação em tempo real com o Quadro OTM</p>
+            </div>
+          </div>
+          
+          <div className="flex gap-4">
+            <div className="bg-gray-50 px-8 py-4 rounded-2xl border border-gray-100 text-center">
+               <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Lead Time NAVE</p>
+               <p className="text-lg font-serif font-bold text-gray-900">{naveMetrics.leadTime} dias</p>
+            </div>
+            <div className="bg-gray-50 px-8 py-4 rounded-2xl border border-gray-100 text-center">
+               <p className="text-[10px] font-bold text-gray-400 uppercase mb-1">Throughput NAVE</p>
+               <p className="text-lg font-serif font-bold text-gray-900">{naveMetrics.throughput} /sem</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Metric Cards Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">

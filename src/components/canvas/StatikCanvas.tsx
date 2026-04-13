@@ -13,6 +13,7 @@ import { StatikTable } from "./StatikTable";
 import { WorkflowEditor } from "./WorkflowEditor";
 import { ClassGrid } from "./ClassGrid";
 import { AiBubble } from "./AiBubble";
+import { DiagnosticCanvas } from "./DiagnosticCanvas";
 
 import { updateSessionData, getAiObservation, generateFinalDiagnosis } from "@/app/actions";
 import { sessions } from "@/db/schema";
@@ -353,39 +354,41 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                       </div>
                    )}
 
-                   {cur === 8 && diagnosis && (
-                      <div className="space-y-12">
-                         <div className="bg-white p-12 rounded-[2rem] shadow-xl border border-gray-100 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-2 h-full bg-[#534AB7]" />
-                            <h2 className="text-[11px] font-extrabold text-[#534AB7] uppercase tracking-widest mb-6">VISÃO SISTÊMICA</h2>
-                            <p className="text-2xl font-serif text-gray-900 mb-12 leading-tight">{diagnosis.overview}</p>
-
-                            <div className="grid grid-cols-2 gap-12">
-                               <div>
-                                  <h3 className="text-[11px] font-extrabold text-gray-400 uppercase tracking-widest mb-6">PADRÕES OBSERVADOS</h3>
-                                  <div className="space-y-3">
-                                     {diagnosis.patterns.map((p: string, i: number) => (
-                                        <div key={i} className="p-4 bg-gray-50 rounded-xl text-sm font-medium border-l-4 border-[#AFA9EC]">
-                                           {p}
-                                        </div>
-                                     ))}
-                                  </div>
-                               </div>
-                               <div>
-                                  <h3 className="text-[11px] font-extrabold text-[#1D9E75] uppercase tracking-widest mb-6">PRÓXIMOS PASSOS</h3>
-                                  <div className="space-y-4">
-                                     {diagnosis.nextsteps.map((s: string, i: number) => (
-                                        <div key={i} className="flex gap-4 items-start">
-                                           <div className="w-6 h-6 bg-[#1D9E75] text-white rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-1">
-                                              {i+1}
-                                           </div>
-                                           <p className="text-sm text-gray-700 font-medium">{s}</p>
-                                        </div>
-                                     ))}
-                                  </div>
-                               </div>
+                   {cur === 8 && (
+                      <div className="space-y-8">
+                        {loadingAi === 8 && (
+                          <div className="bg-[#F5F4FF] border border-[#AFA9EC] rounded-2xl p-6 flex items-center gap-3">
+                            <div className="flex gap-1">
+                              <span className="w-2 h-2 bg-[#534AB7] rounded-full animate-bounce [animation-delay:-0.3s]"/>
+                              <span className="w-2 h-2 bg-[#534AB7] rounded-full animate-bounce [animation-delay:-0.15s]"/>
+                              <span className="w-2 h-2 bg-[#534AB7] rounded-full animate-bounce"/>
                             </div>
-                         </div>
+                            <span className="text-sm text-[#534AB7] font-medium">Gerando diagnóstico...</span>
+                          </div>
+                        )}
+
+                        {!diagnosis && loadingAi !== 8 && (
+                          <div className="text-center py-12">
+                            <p className="text-gray-400 text-sm mb-4">Diagnóstico ainda não gerado.</p>
+                            <button
+                              onClick={handleGenerateDiagnosis}
+                              className="px-6 py-3 bg-[#534AB7] text-white text-sm font-bold rounded-2xl hover:bg-[#3C3489] transition-colors"
+                            >
+                              Gerar diagnóstico agora
+                            </button>
+                          </div>
+                        )}
+
+                        {diagnosis && (
+                          <DiagnosticCanvas
+                            session={{
+                              ...session,
+                              data,
+                              aiCache,
+                              diagnosis,
+                            }}
+                          />
+                        )}
                       </div>
                    )}
                 </div>

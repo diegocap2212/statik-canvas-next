@@ -12,10 +12,20 @@ interface ProbabilitiesConeProps {
 }
 
 export function ProbabilitiesCone({ data }: ProbabilitiesConeProps) {
-  if (!data) return null;
+  if (!data) {
+    return (
+      <div className="bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm flex flex-col items-center justify-center text-center relative overflow-hidden h-full min-h-[300px]">
+        <Target className="text-gray-200 mb-4" size={48} />
+        <h3 className="text-sm font-bold text-gray-900 mb-2">Cone de Incerteza (Monte Carlo)</h3>
+        <p className="text-xs text-gray-400 max-w-[200px]">
+          Dados insuficientes para projeção. É necessário ter itens no Backlog e histórico recente de vazão.
+        </p>
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm">
+    <div className="bg-white border border-gray-100 rounded-[2rem] p-8 shadow-sm h-full flex flex-col justify-between">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 rounded-xl bg-[#F5F4FF] flex items-center justify-center">
           <Target className="text-[#534AB7]" size={20} />

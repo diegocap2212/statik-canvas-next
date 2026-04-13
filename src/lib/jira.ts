@@ -2,17 +2,23 @@ import { callGemini } from "./gemini";
 
 function getJiraConfig() {
   const sanitize = (val?: string) => val?.trim().replace(/^\uFEFF/, "");
+  const sanitizeDomain = (val?: string) => sanitize(val)?.replace(/^https?:\/\//, "").replace(/\/$/, "");
   
   return {
-    domain: sanitize(process.env.JIRA_DOMAIN) || "otmow-team.atlassian.net",
+    domain: sanitizeDomain(process.env.JIRA_DOMAIN) || "otmow-team.atlassian.net",
     email: sanitize(process.env.JIRA_EMAIL) || "suporte@otmow.com",
     token: sanitize(process.env.Statik_API) || sanitize(process.env.JIRA_API_TOKEN)
   };
 }
 
-function getAuthHeader() {
+function getAuthHeaders() {
   const { email, token } = getJiraConfig();
-  return `Basic ${Buffer.from(`${email}:${token}`).toString("base64")}`;
+  return {
+    "Authorization": `Basic ${Buffer.from(`${email}:${token}`).toString("base64")}`,
+    "Accept": "application/json",
+    "Content-Type": "application/json",
+    "User-Agent": "StatikCanvas/1.0 (Integration/FlowMetrics)"
+  };
 }
 
 export interface FlowMetrics {
@@ -54,7 +60,7 @@ export async function fetchJiraIssues() {
     // 1. Get Project Statuses for category mapping
     const statusUrl = `https://${domain}/rest/api/3/project/OTE/statuses`;
     const statusRes = await fetch(statusUrl, {
-      headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+      headers: getAuthHeaders(),
       signal: controller.signal,
       cache: 'no-store'
     });
@@ -77,11 +83,7 @@ export async function fetchJiraIssues() {
       const url = `https://${domain}/rest/api/3/search/jql`;
       searchRes = await fetch(url, {
         method: "POST",
-        headers: { 
-          "Authorization": getAuthHeader(), 
-          "Accept": "application/json",
-          "Content-Type": "application/json"
-        },
+        headers: getAuthHeaders(),
         body: JSON.stringify({
           jql: "project = OTE ORDER BY created DESC",
           maxResults: maxResults,
@@ -112,7 +114,7 @@ export async function fetchJiraIssues() {
       try {
         const issueUrl = `https://${domain}/rest/api/3/issue/${issueStub.id}?expand=changelog`;
         const res = await fetch(issueUrl, {
-          headers: { "Authorization": getAuthHeader(), "Accept": "application/json" },
+          headers: getAuthHeaders(),
           signal: controller.signal,
           cache: 'no-store'
         });

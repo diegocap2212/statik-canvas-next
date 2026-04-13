@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, ArrowLeft,
-  LayoutDashboard, TrendingUp, Loader2, CheckCircle
+  LayoutDashboard
 } from "lucide-react";
 
 import { TagInput } from "./TagInput";
@@ -18,11 +18,9 @@ import { DiagnosticCanvas } from "./DiagnosticCanvas";
 import { 
   updateSessionData, 
   getAiObservation, 
-  generateFinalDiagnosis,
-  getNaveAnalysis 
+  generateFinalDiagnosis
 } from "@/app/actions";
 import { sessions } from "@/db/schema";
-import { NaveMetrics } from "@/lib/nave";
 
 type Session = typeof sessions.$inferSelect;
 type SessionData = NonNullable<Session["data"]>;
@@ -64,8 +62,6 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
   const [saveError, setSaveError] = useState(false);
   const [aiError, setAiError] = useState(false);
   const [diagnosis, setDiagnosis] = useState(session.diagnosis);
-  const [naveMetrics, setNaveMetrics] = useState<NaveMetrics | null>(null);
-  const [loadingNave, setLoadingNave] = useState(false);
 
   // Auto-save logic
   useEffect(() => {
@@ -88,19 +84,6 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
     setCur(n);
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (n === 8 && !diagnosis) handleGenerateDiagnosis();
-    if (n === 4 && !naveMetrics) handleFetchNave();
-  };
-
-  const handleFetchNave = async () => {
-    setLoadingNave(true);
-    try {
-      const metrics = await getNaveAnalysis();
-      if (metrics) setNaveMetrics(metrics);
-    } catch (e) {
-      console.error("Erro NAVE:", e);
-    } finally {
-      setLoadingNave(false);
-    }
   };
 
   const updateStepVal = (field: string, val: string) => {
@@ -317,43 +300,6 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                             </div>
                          </div>
                          
-                         {/* NAVE Comparison Section */}
-                         <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm">
-                            <div className="flex justify-between items-center mb-6">
-                               <div className="flex items-center gap-3">
-                                  <div className="bg-[#1D9E75] p-2 rounded-lg text-white">
-                                     <TrendingUp size={16} />
-                                  </div>
-                                  <div>
-                                     <h3 className="text-sm font-bold text-gray-900">Validação Cruzada (NAVE)</h3>
-                                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Fonte: Quadro OTM</p>
-                                  </div>
-                               </div>
-                               {loadingNave && <Loader2 size={16} className="text-[#534AB7] animate-spin" />}
-                            </div>
-                            
-                            <div className="grid grid-cols-2 gap-6">
-                               <div className="bg-gray-50 p-4 rounded-2xl flex justify-between items-center">
-                                  <span className="text-xs text-gray-500 font-medium">Lead Time NAVE</span>
-                                  <span className="text-sm font-serif font-bold text-gray-900">
-                                     {naveMetrics ? `${naveMetrics.leadTime} dias` : "..."}
-                                  </span>
-                               </div>
-                               <div className="bg-gray-50 p-4 rounded-2xl flex justify-between items-center">
-                                  <span className="text-xs text-gray-500 font-medium">Throughput NAVE</span>
-                                  <span className="text-sm font-serif font-bold text-gray-900">
-                                     {naveMetrics ? `${naveMetrics.throughput} / sem` : "..."}
-                                  </span>
-                               </div>
-                            </div>
-                            
-                            {naveMetrics && (
-                               <div className="mt-4 flex items-center gap-2 text-[10px] text-[#1D9E75] font-bold">
-                                  <CheckCircle size={10} /> DADOS SINCRONIZADOS COM SUCESSO
-                               </div>
-                            )}
-                         </div>
-
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Gargalos evidentes</label>
                             <textarea

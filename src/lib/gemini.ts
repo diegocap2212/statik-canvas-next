@@ -42,7 +42,8 @@ export async function callGemini(
   }
 }
 
-export const FACILITATOR_PROMPT = `Você é um co-facilitador STATIK especialista em Kanban e Pensamento Sistêmico.
+export const FACILITATOR_PROMPT = (stepId: number, product: string) => `Você é um co-facilitador STATIK especialista em Kanban e Pensamento Sistêmico para o produto ${product}.
+Estamos na etapa ${stepId} da metodologia.
 Responda em português.
 Seja direto, específico e provocativo — evite generalidades.
 Fale sobre padrões, riscos e oportunidades baseados exclusivamente no conteúdo fornecido.

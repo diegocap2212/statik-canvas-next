@@ -13,7 +13,6 @@ function getJiraConfig() {
 
 function getAuthHeaders() {
   const { email, token } = getJiraConfig();
-  // Ensure we don't have spaces or odd chars in the base64
   const auth = Buffer.from(`${(email || "").trim()}:${(token || "").trim()}`).toString("base64");
   return {
     "Authorization": `Basic ${auth}`,
@@ -26,7 +25,14 @@ function getAuthHeaders() {
 export interface FlowMetrics {
   leadTime: { avg: number; p50: number; p85: number; p95: number; samples: number };
   cycleTime: { avg: number; p50: number; p85: number; p95: number; samples: number };
-  throughput: { weeks: { label: string; count: number; leadTime: number }[] };
+  throughput: { 
+    weeks: { 
+      label: string; 
+      count: number; 
+      leadTime: number;
+      byType: { [type: string]: number };
+    }[] 
+  };
   wip: { stage: string; count: number }[];
   demographics: {
     done: { type: string; count: number }[];
@@ -51,12 +57,8 @@ export interface Opportunity {
 export interface InsightsData {
   summary: string;
   opportunities: Opportunity[];
-  naveComparison?: string;
 }
 
-/**
- * Fetch issues from Jira project OTE with changelog
- */
 export async function fetchJiraIssues() {
   const { token, domain } = getJiraConfig();
   if (!token) {
@@ -68,9 +70,8 @@ export async function fetchJiraIssues() {
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 1. Get Project Statuses (Compliant GET)
     const statusUrl = `https://${domain}/rest/api/3/project/OTE/statuses`;
     const statusRes = await fetch(statusUrl, {
       headers: getAuthHeaders(),
@@ -78,10 +79,7 @@ export async function fetchJiraIssues() {
       cache: 'no-store'
     });
     
-    if (!statusRes.ok) {
-      if (statusRes.status === 401) throw new Error("Falha na autenticação (401). Verifique seu Token Jira.");
-      throw new Error(`Erro ao conectar (HTTP ${statusRes.status})`);
-    }
+    if (!statusRes.ok) throw new Error(`Erro ao conectar Status (HTTP ${statusRes.status})`);
     const statusData = await statusRes.json();
     const statusCategoryMap: Record<string, string> = {};
     if (Array.isArray(statusData)) {
@@ -92,8 +90,6 @@ export async function fetchJiraIssues() {
       });
     }
 
-    // 2. Fetch Issues using the only working Search API (POST /search/jql)
-    // We use token-based pagination to collect ALL historical data.
     const searchUrl = `https://${domain}/rest/api/3/search/jql`;
     let pageToken: string | undefined = undefined;
     let hasMore = true;
@@ -107,21 +103,16 @@ export async function fetchJiraIssues() {
           maxResults: maxResults,
           ...(pageToken ? { nextPageToken: pageToken } : {}),
           expand: "changelog",
-          fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority", "statuscategorychangedate"]
+          fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority"]
         }),
         signal: controller.signal,
         cache: 'no-store'
       });
 
-      if (!searchRes.ok) {
-        throw new Error(`Jira Search Error: ${searchRes.statusText}`);
-      }
+      if (!searchRes.ok) throw new Error(`Jira Search Error: ${searchRes.statusText}`);
 
       const searchData: any = await searchRes.json();
-      if (searchData.issues) {
-        issues.push(...searchData.issues);
-      }
-      
+      if (searchData.issues) issues.push(...searchData.issues);
       pageToken = searchData.nextPageToken;
       hasMore = !!pageToken;
     }
@@ -129,23 +120,17 @@ export async function fetchJiraIssues() {
     clearTimeout(timeoutId);
     return { issues, statusCategoryMap, error: null };
   } catch (err: any) {
-    if (err.name === "AbortError") return { issues: [], statusCategoryMap: {}, error: "Timeout: O Jira excedeu o tempo limite de 15s." };
     return { issues: [], statusCategoryMap: {}, error: err.message };
   }
 }
 
-/**
- * Calculate Flow Metrics from Jira issues
- */
 export function calcMetrics(issues: any[], statusCategoryMap: Record<string, string>): FlowMetrics {
-  const now = new Date();
   const leadTimes: number[] = [];
   const cycleTimes: number[] = [];
-  const completedLast12Weeks: { [key: string]: { count: number; leadTimes: number[] } } = {};
+  const completedLast12Weeks: { [key: string]: { count: number; leadTimes: number[]; byType: { [t: string]: number } } } = {};
   const wipStages: { [key: string]: number } = {};
   const demoMap = { done: {} as Record<string, number>, wip: {} as Record<string, number>, todo: {} as Record<string, number> };
   
-  // Weekly structure for throughput
   const weeks: string[] = [];
   for (let i = 11; i >= 0; i--) {
     const d = new Date();
@@ -153,7 +138,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     const startOfWeek = getStartOfWeek(d);
     const label = `${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}`;
     weeks.push(label);
-    completedLast12Weeks[label] = { count: 0, leadTimes: [] };
+    completedLast12Weeks[label] = { count: 0, leadTimes: [], byType: {} };
   }
 
   let totalActiveTime = 0;
@@ -161,10 +146,13 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
   let efficiencySamples = 0;
 
   issues.forEach(issue => {
+    // CRITICAL FIX: Exclude subtasks
+    if (issue.fields.issuetype?.subtask) return;
+
     const created = new Date(issue.fields.created);
     const resolved = issue.fields.resolutiondate ? new Date(issue.fields.resolutiondate) : null;
     const statusKey = issue.fields.status.statusCategory.key;
-    const issueType = issue.fields.issuetype?.name || "Desconhecido";
+    const issueType = issue.fields.issuetype?.name || "Task";
 
     // Demographics
     let cat = "todo";
@@ -172,33 +160,30 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     else if (statusKey === "indeterminate") cat = "wip";
     demoMap[cat as keyof typeof demoMap][issueType] = (demoMap[cat as keyof typeof demoMap][issueType] || 0) + 1;
 
-    // 1. Lead Time
+    // 1. Lead Time & Throughput
     if (resolved) {
       const lt = (resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
       leadTimes.push(lt);
 
-      // Throughput
       const startOfWeek = getStartOfWeek(resolved);
       const label = `${startOfWeek.getDate()}/${startOfWeek.getMonth() + 1}`;
       if (completedLast12Weeks[label] !== undefined) {
         completedLast12Weeks[label].count++;
         completedLast12Weeks[label].leadTimes.push(lt);
+        completedLast12Weeks[label].byType[issueType] = (completedLast12Weeks[label].byType[issueType] || 0) + 1;
       }
     }
 
-    // 2. Cycle Time Logic
+    // 2. Cycle Time
     let firstInProgress: Date | null = null;
     const histories = issue.changelog?.histories || [];
-    // Sort chronologically
     const sortedHistories = [...histories].sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
 
     sortedHistories.forEach((h: any) => {
       h.items.forEach((item: any) => {
         if (item.field === "status") {
           const cat = statusCategoryMap[item.toString] || "";
-          if (cat === "indeterminate" && !firstInProgress) {
-            firstInProgress = new Date(h.created);
-          }
+          if (cat === "indeterminate" && !firstInProgress) firstInProgress = new Date(h.created);
         }
       });
     });
@@ -206,8 +191,6 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     if (resolved && firstInProgress) {
       const ct = (resolved.getTime() - (firstInProgress as Date).getTime()) / (1000 * 60 * 60 * 24);
       cycleTimes.push(Math.max(0, ct));
-      
-      // For Flow Efficiency
       totalActiveTime += ct;
       const lt = (resolved.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
       totalLeadTimeForEfficiency += lt;
@@ -223,13 +206,11 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
 
   const sortedLT = [...leadTimes].sort((a, b) => a - b);
   const sortedCT = [...cycleTimes].sort((a, b) => a - b);
-
   const avg = (arr: number[]) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
 
-  // Monte Carlo Calculation
+  // Monte Carlo
   const recentThroughputs = Object.values(completedLast12Weeks).map(w => w.count);
   const backlogSize = Object.values(demoMap.todo).reduce((a, b) => a + b, 0);
-  
   let monteCarlo;
   if (backlogSize > 0 && recentThroughputs.some(c => c > 0)) {
     const samples: number[] = [];
@@ -237,8 +218,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       let remaining = backlogSize;
       let weeksGen = 0;
       while (remaining > 0 && weeksGen < 100) {
-        const t = recentThroughputs[Math.floor(Math.random() * recentThroughputs.length)];
-        remaining -= t;
+        remaining -= recentThroughputs[Math.floor(Math.random() * recentThroughputs.length)];
         weeksGen++;
       }
       samples.push(weeksGen);
@@ -271,7 +251,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       weeks: weeks.map(label => {
         const d = completedLast12Weeks[label];
         const avgLt = d.leadTimes.length ? d.leadTimes.reduce((a, b) => a + b, 0) / d.leadTimes.length : 0;
-        return { label, count: d.count, leadTime: avgLt };
+        return { label, count: d.count, leadTime: avgLt, byType: d.byType };
       })
     },
     wip: Object.entries(wipStages).map(([stage, count]) => ({ stage, count })),
@@ -280,14 +260,11 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
       wip: Object.entries(demoMap.wip).map(([type, count]) => ({ type, count })),
       todo: Object.entries(demoMap.todo).map(([type, count]) => ({ type, count }))
     },
-    flowEfficiency: efficiencySamples > 0 && totalLeadTimeForEfficiency > 0 
-      ? (totalActiveTime / totalLeadTimeForEfficiency) * 100 
-      : 0,
+    flowEfficiency: efficiencySamples > 0 && totalLeadTimeForEfficiency > 0 ? (totalActiveTime / totalLeadTimeForEfficiency) * 100 : 0,
     monteCarlo
   };
 }
 
-// Helpers
 function percentile(arr: number[], p: number): number {
   if (arr.length === 0) return 0;
   const index = (arr.length - 1) * p;
@@ -301,42 +278,29 @@ function percentile(arr: number[], p: number): number {
 function getStartOfWeek(date: Date): Date {
   const d = new Date(date);
   const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
   return new Date(d.setDate(diff));
 }
 
-const JIRA_INSIGHTS_PROMPT = `Você é um consultor sênior em Kanban e STATIK (Systems Thinking Approach to Introducing Kanban).
-Analise as métricas de fluxo fornecidas e retorne APENAS um JSON válido.
-O objetivo é trazer PROVOCAÇÕES e PERGUNTAS ao time, não afirmações absolutas. Desafie o status quo. Reflita sobre as variabilidades, gargalos, relação cycle time vs lead time e tamanho de WIP.
+const JIRA_INSIGHTS_PROMPT = `Você é um consultor sênior em Kanban e STATIK.
+Analise as métricas de fluxo e retorne APENAS um JSON válido.
+Foque em como a distribuição de tipos de itens (Bugs vs Stories) impacta a previsibilidade.
 Formato exato:
-{"summary":"2-3 frases com observações provocativas sobre a saúde geral do fluxo","opportunities":[{"title":"pergunta ou reflexão curta","description":"explicação de 2-3 frases com uma provocação baseada nos números para melhorar o sistema","statikStep":"etapa STATIK recomendada"}]}
-REGRAS: Responda em português. Apenas o JSON válido, sem markdown.`;
+{"summary":"2-3 frases provocativas","opportunities":[{"title":"título","description":"explicação","statikStep":"etapa"}]}
+REGRAS: Responda em português. Apenas JSON.`;
 
-export async function generateOpportunities(metrics: FlowMetrics, naveMetrics?: any): Promise<InsightsData> {
-  let userMessage = `Métricas Atuais do Fluxo (Jira):
-  - Lead Time Médio: ${metrics.leadTime.avg.toFixed(1)} dias (p85: ${metrics.leadTime.p85.toFixed(1)})
-  - Cycle Time Médio: ${metrics.cycleTime.avg.toFixed(1)} dias (p85: ${metrics.cycleTime.p85.toFixed(1)})
+export async function generateOpportunities(metrics: FlowMetrics): Promise<InsightsData> {
+  const userMessage = `Métricas:
+  - Lead Time Médio: ${metrics.leadTime.avg.toFixed(1)} dias
   - Throughput (últimas 12 semanas): ${metrics.throughput.weeks.map(w => w.count).join(", ")}
-  - WIP Total: ${metrics.wip.reduce((acc, curr) => acc + curr.count, 0)} itens
-  - Eficiência de Fluxo: ${metrics.flowEfficiency.toFixed(1)}%`;
-
-  if (naveMetrics) {
-    userMessage += `\n\nComparação com NAVE:
-    - NAVE Lead Time: ${naveMetrics.leadTime} dias
-    - NAVE Throughput: ${naveMetrics.throughput} itens/semana
-    - OBS: Se houver diferença significativa entre Jira e NAVE, comente no 'summary' ou crie uma oportunidade para investigar critérios de entrada/saída.`;
-  }
+  - WIP Total (sem subtasks): ${metrics.wip.reduce((acc, curr) => acc + curr.count, 0)} itens
+  - Eficiência: ${metrics.flowEfficiency.toFixed(1)}%`;
 
   try {
     const response = await callClaude(JIRA_INSIGHTS_PROMPT, userMessage);
-    // Extract JSON if model returned markdown blocks (safety)
     const jsonStr = response.replace(/```json|```/g, "").trim();
     return JSON.parse(jsonStr);
   } catch (err) {
-    console.error("Failed to generate opportunities:", err);
-    return {
-      summary: "Não foi possível gerar a síntese automática no momento. Verifique se o provedor de IA está configurado corretamente.",
-      opportunities: []
-    };
+    return { summary: "Erro ao gerar síntese.", opportunities: [] };
   }
 }

@@ -1,131 +1,104 @@
 "use server";
 
 import { db } from "@/db";
-import { sessions, users } from "@/db/schema";
+import { sessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { callGemini, FACILITATOR_PROMPT, DIAGNOSIS_PROMPT } from "@/lib/gemini";
-import { fetchNaveMetrics, findNaveDashboardId } from "@/lib/nave";
 
 // Temporary mock user ID until Google Auth is implemented
 const MOCK_USER_ID = "diego-caporusso-mock";
 
-type SessionData = typeof sessions.$inferSelect["data"];
-
 async function ensureMockUser() {
-  const existing = await db.query.users.findFirst({
-    where: eq(users.id, MOCK_USER_ID),
-  });
-  if (!existing) {
-    await db.insert(users).values({
-      id: MOCK_USER_ID,
-      name: "Diego Caporusso",
-      email: "diego@example.com",
-    });
-  }
+  // Logic to ensure the mock user exists in the DB if needed
 }
 
-export async function createSession(
-  productName: string,
-  facilitator?: string,
-  context?: string
-) {
-  await ensureMockUser();
-  const [newSession] = await db
-    .insert(sessions)
-    .values({ userId: MOCK_USER_ID, productName, facilitator, context })
-    .returning();
-  if (!newSession) throw new Error("Falha ao criar a sessão no banco de dados.");
-  return newSession;
-}
-
-export async function updateSessionData(id: string, data: SessionData) {
-  await db
-    .update(sessions)
-    .set({ data, updatedAt: new Date() })
-    .where(eq(sessions.id, id));
-}
-
-export async function getAiObservation(
-  id: string,
-  step: number,
-  content: string
-) {
-  const session = await db.query.sessions.findFirst({
-    where: eq(sessions.id, id),
-  });
-  if (!session) throw new Error("Sessão não encontrada");
-
-  const userMsg = `Produto: ${session.productName}. Contexto: ${session.context ?? "não informado"}. Etapa ${step}: ${content}.\nDados de suporte da sessão: ${JSON.stringify(session.data)}`;
-
-  const observation = await callGemini(FACILITATOR_PROMPT, userMsg);
-
-  // Cache the result in the DB
-  const newCache = { ...(session.aiCache as Record<number, string> ?? {}), [step]: observation };
-  await db.update(sessions).set({ aiCache: newCache }).where(eq(sessions.id, id));
-
-  return observation;
-}
-
-export async function generateFinalDiagnosis(id: string) {
-  const session = await db.query.sessions.findFirst({
-    where: eq(sessions.id, id),
-  });
-  if (!session) throw new Error("Sessão não encontrada");
-
-  const summary = `SESSÃO STATIK CANVAS
-Produto: ${session.productName}
-Facilitador: ${session.facilitator ?? "não informado"}
-Contexto: ${session.context ?? "não informado"}
-Dados completos: ${JSON.stringify(session.data, null, 2)}
-Observações IA por etapa: ${JSON.stringify(session.aiCache, null, 2)}`;
-
-  const rawResult = await callGemini(DIAGNOSIS_PROMPT, summary, 2048);
-
-  // Robust JSON parsing — strips any accidental markdown fences
-  const clean = rawResult
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  let diagnosis: { overview: string; patterns: string[]; nextsteps: string[] };
-
+export async function createSession(productName: string, facilitator?: string, context?: string) {
   try {
-    diagnosis = JSON.parse(clean);
-  } catch (parseError) {
-    console.error("JSON parse failed. Raw response was:", rawResult);
-    const fixPrompt = `O texto abaixo deveria ser um JSON válido mas não é. Corrija-o e retorne APENAS o JSON, sem nenhum texto adicional:\n\n${rawResult}`;
-    const fixed = await callGemini("Retorne apenas JSON válido, sem markdown.", fixPrompt, 2048);
-    const fixedClean = fixed.replace(/```json|```/gi, "").trim();
-    diagnosis = JSON.parse(fixedClean);
+    const [newSession] = await db.insert(sessions).values({
+      userId: MOCK_USER_ID,
+      productName,
+      facilitator: facilitator || null,
+      context: context || null,
+      data: {
+        tagsInternal: [],
+        tagsExternal: [],
+        demands: [],
+        cadences: [],
+        workflow: ["Backlog", "Em andamento", "Pausado", "Entregue"],
+        classes: [],
+        steps: {},
+      },
+    }).returning();
+    return newSession;
+  } catch (error) {
+    console.error("Failed to create session:", error);
+    throw new Error("Failed to create session");
   }
-
-  await db
-    .update(sessions)
-    .set({ diagnosis, isDone: true })
-    .where(eq(sessions.id, id));
-
-  return diagnosis;
 }
 
 export async function getUserSessions() {
-  await ensureMockUser();
-  return db
-    .select()
-    .from(sessions)
-    .where(eq(sessions.userId, MOCK_USER_ID))
-    .orderBy(desc(sessions.createdAt));
+  return await db.query.sessions.findMany({
+    where: eq(sessions.userId, MOCK_USER_ID),
+    orderBy: [desc(sessions.createdAt)],
+  });
+}
+
+export async function getSession(id: string) {
+  return await db.query.sessions.findFirst({
+    where: eq(sessions.id, id),
+  });
+}
+
+export async function updateSessionData(id: string, data: any) {
+  await db.update(sessions).set({ data }).where(eq(sessions.id, id));
+}
+
+export async function getAiObservation(sessionId: string, stepId: number, content: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found");
+
+  const systemPrompt = FACILITATOR_PROMPT(stepId, session.productName);
+  const result = await callGemini(systemPrompt, content);
+
+  const currentCache = (session.aiCache as any) || {};
+  const newCache = { ...currentCache, [stepId]: result };
+  
+  await db.update(sessions).set({ aiCache: newCache }).where(eq(sessions.id, sessionId));
+  
+  return result;
+}
+
+export async function generateFinalDiagnosis(sessionId: string) {
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found");
+
+  const sessionSummary = JSON.stringify({
+    product: session.productName,
+    data: session.data,
+    aiCache: session.aiCache
+  });
+
+  const response = await callGemini(DIAGNOSIS_PROMPT, sessionSummary);
+  
+  let diagnosis;
+  try {
+    diagnosis = JSON.parse(response);
+  } catch (e) {
+    diagnosis = {
+      overview: response,
+      patterns: [],
+      nextsteps: []
+    };
+  }
+
+  await db.update(sessions).set({ diagnosis }).where(eq(sessions.id, sessionId));
+  revalidatePath(`/session/${sessionId}`);
+  return diagnosis;
 }
 
 export async function clearTestData() {
   await ensureMockUser();
   await db.delete(sessions).where(eq(sessions.userId, MOCK_USER_ID));
   revalidatePath("/dashboard");
-}
-
-export async function getNaveAnalysis(boardName: string = "quadro OTM") {
-  const id = await findNaveDashboardId(boardName);
-  if (!id) return null;
-  return await fetchNaveMetrics(id);
 }

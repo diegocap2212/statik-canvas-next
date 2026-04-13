@@ -40,7 +40,7 @@ export function ProbabilitiesCone({ data }: ProbabilitiesConeProps) {
         </div>
       </div>
 
-      <div className="relative pt-8 pb-4 px-4 overflow-hidden">
+      <div className="relative pt-6 pb-2 px-1 overflow-hidden">
         {/* The Cone Visual */}
         <div className="absolute top-0 left-0 w-full h-full pointer-events-none opacity-20">
           <svg preserveAspectRatio="none" viewBox="0 0 100 100" className="w-full h-full">
@@ -50,50 +50,50 @@ export function ProbabilitiesCone({ data }: ProbabilitiesConeProps) {
 
         <div className="relative z-10 flex flex-col gap-6">
           <div className="flex justify-between items-center group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center font-bold text-gray-500 group-hover:border-[#534AB7] group-hover:text-[#534AB7] transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center font-bold text-gray-500 group-hover:border-[#534AB7] group-hover:text-[#534AB7] transition-colors text-xs">
                 50%
               </div>
               <div>
-                <div className="text-sm font-bold text-gray-900">Otimista</div>
-                <div className="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider">Alta Incerteza</div>
+                <div className="text-xs font-bold text-gray-900 leading-tight">Otimista</div>
+                <div className="text-[9px] uppercase text-gray-400 font-extrabold tracking-wider">Alta Incerteza</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-serif font-bold text-gray-900">{Math.ceil(data.p50Weeks)}</div>
-              <div className="text-xs uppercase font-bold text-gray-400">Semanas</div>
+            <div className="text-right flex-shrink-0 ml-2">
+              <div className="text-xl font-serif font-bold text-gray-900 leading-none">{Math.ceil(data.p50Weeks)}</div>
+              <div className="text-[9px] uppercase font-bold text-gray-400 mt-1">Semanas</div>
             </div>
           </div>
 
           <div className="flex justify-between items-center group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white border-2 border-[#534AB7] shadow-sm flex items-center justify-center font-bold text-[#534AB7] bg-[#F5F4FF]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border-2 border-[#534AB7] shadow-sm flex items-center justify-center font-bold text-[#534AB7] bg-[#F5F4FF] text-xs">
                 85%
               </div>
               <div>
-                <div className="text-sm font-bold text-[#534AB7]">Provável (Compromisso)</div>
-                <div className="text-[10px] uppercase text-[#534AB7]/70 font-extrabold tracking-wider">Risco Moderado</div>
+                <div className="text-xs font-bold text-[#534AB7] leading-tight">Provável</div>
+                <div className="text-[9px] uppercase text-[#534AB7]/70 font-extrabold tracking-wider">Risco Moderado</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-3xl font-serif font-bold text-[#534AB7]">{Math.ceil(data.p85Weeks)}</div>
-              <div className="text-xs uppercase font-bold text-[#534AB7]/70">Semanas</div>
+            <div className="text-right flex-shrink-0 ml-2">
+              <div className="text-2xl font-serif font-bold text-[#534AB7] leading-none">{Math.ceil(data.p85Weeks)}</div>
+              <div className="text-[9px] uppercase font-bold text-[#534AB7]/70 mt-1">Semanas</div>
             </div>
           </div>
 
           <div className="flex justify-between items-center group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center font-bold text-gray-500 group-hover:border-gray-900 group-hover:text-gray-900 transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-white border-2 border-gray-100 shadow-sm flex items-center justify-center font-bold text-gray-500 group-hover:border-gray-900 group-hover:text-gray-900 transition-colors text-xs">
                 95%
               </div>
               <div>
-                <div className="text-sm font-bold text-gray-900">Conservador</div>
-                <div className="text-[10px] uppercase text-gray-400 font-extrabold tracking-wider">Alta Confiança</div>
+                <div className="text-xs font-bold text-gray-900 leading-tight">Conservador</div>
+                <div className="text-[9px] uppercase text-gray-400 font-extrabold tracking-wider">Alta Confiança</div>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-serif font-bold text-gray-900">{Math.ceil(data.p95Weeks)}</div>
-              <div className="text-xs uppercase font-bold text-gray-400">Semanas</div>
+            <div className="text-right flex-shrink-0 ml-2">
+              <div className="text-xl font-serif font-bold text-gray-900 leading-none">{Math.ceil(data.p95Weeks)}</div>
+              <div className="text-[9px] uppercase font-bold text-gray-400 mt-1">Semanas</div>
             </div>
           </div>
         </div>

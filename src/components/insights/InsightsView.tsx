@@ -72,8 +72,8 @@ export function InsightsView({ metrics, opportunities, totalIssues }: InsightsVi
       </div>
 
       {/* New Section: Demographics and Cone */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-12">
-        <div className="lg:col-span-3">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <div className="lg:col-span-2">
           <DemographicsBoard data={metrics.demographics} />
         </div>
         <div>

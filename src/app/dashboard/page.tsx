@@ -2,24 +2,28 @@ export const dynamic = "force-dynamic";
 import { getUserSessions } from "@/app/actions";
 import Link from "next/link";
 import { Plus, Clock, FileText, Bot, ChevronRight } from "lucide-react";
+import { ResetButton } from "@/components/dashboard/ResetButton";
 
 export default async function DashboardPage() {
   const sessions = await getUserSessions();
 
   return (
-    <div className="min-h-screen bg-[#FAFAF8] p-16">
+    <div className="min-h-screen p-16 pt-0">
       <div className="max-w-5xl mx-auto">
         <header className="flex justify-between items-end mb-16">
           <div>
             <h1 className="text-4xl font-serif text-gray-900 mb-2">Suas Sessões IA Statik</h1>
             <p className="text-gray-400 font-bold text-sm tracking-wide uppercase">Powered By Diego Caporusso</p>
           </div>
-          <Link 
-            href="/"
-            className="bg-[#534AB7] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#4339A3] transition-all shadow-lg"
-          >
-            <Plus size={20} /> Nova Sessão
-          </Link>
+          <div className="flex gap-4">
+            <ResetButton />
+            <Link 
+              href="/"
+              className="bg-[#534AB7] text-white px-6 py-3 rounded-2xl font-bold flex items-center gap-2 hover:bg-[#4339A3] transition-all shadow-lg"
+            >
+              <Plus size={20} /> Nova Sessão
+            </Link>
+          </div>
         </header>
 
         {sessions.length === 0 ? (

@@ -3,6 +3,7 @@
 import { db } from "@/db";
 import { sessions, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { callGemini, FACILITATOR_PROMPT, DIAGNOSIS_PROMPT } from "@/lib/gemini";
 
 // Temporary mock user ID until Google Auth is implemented
@@ -114,4 +115,10 @@ export async function getUserSessions() {
     .from(sessions)
     .where(eq(sessions.userId, MOCK_USER_ID))
     .orderBy(desc(sessions.createdAt));
+}
+
+export async function clearTestData() {
+  await ensureMockUser();
+  await db.delete(sessions).where(eq(sessions.userId, MOCK_USER_ID));
+  revalidatePath("/dashboard");
 }

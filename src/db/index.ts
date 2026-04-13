@@ -9,7 +9,7 @@ import * as schema from "./schema";
  * when process.env.POSTGRES_URL might be undefined.
  */
 
-const connectionString = process.env.POSTGRES_URL || "postgres://localhost:5432/mock_db";
+const connectionString = process.env.POSTGRES_URL || "postgresql://localhost:5432/mock_db";
 const client = neon(connectionString);
 
 export const db = drizzle(client, { schema });

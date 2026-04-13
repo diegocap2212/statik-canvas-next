@@ -32,7 +32,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#FAFAF8] flex flex-col items-center justify-center p-8">
+    <div className="min-h-screen flex flex-col items-center justify-center p-8">
       <div className="max-w-md w-full text-center">
         <div className="w-20 h-20 bg-[#F5F4FF] text-[#534AB7] rounded-3xl flex items-center justify-center mx-auto mb-8 shadow-sm">
           <Sparkles size={40} />
@@ -101,6 +101,6 @@ export default function HomePage() {
             <LayoutDashboard size={18} /> Ver histórico de sessões
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

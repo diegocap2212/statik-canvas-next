@@ -5,6 +5,7 @@ import { sessions, users } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { callGemini, FACILITATOR_PROMPT, DIAGNOSIS_PROMPT } from "@/lib/gemini";
+import { fetchNaveMetrics, findNaveDashboardId } from "@/lib/nave";
 
 // Temporary mock user ID until Google Auth is implemented
 const MOCK_USER_ID = "diego-caporusso-mock";
@@ -121,4 +122,10 @@ export async function clearTestData() {
   await ensureMockUser();
   await db.delete(sessions).where(eq(sessions.userId, MOCK_USER_ID));
   revalidatePath("/dashboard");
+}
+
+export async function getNaveAnalysis(boardName: string = "quadro OTM") {
+  const id = await findNaveDashboardId(boardName);
+  if (!id) return null;
+  return await fetchNaveMetrics(id);
 }

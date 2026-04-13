@@ -34,6 +34,38 @@ html {
   scroll-behavior: smooth;
 }
 
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  
+  .print-page {
+    page-break-after: always;
+    padding: 40px !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+  
+  .print-only {
+    display: block !important;
+  }
+  
+  svg {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+}
+
+.print-only {
+  display: none;
+}
+
 ::selection {
   background: #534AB722;
   color: #534AB7;

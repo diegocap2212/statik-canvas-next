@@ -1,7 +1,10 @@
 "use client";
 
-import { useRef } from "react";
-import { Download } from "lucide-react";
+import { useRef, useState } from "react";
+import { Download, FileText, Loader2 } from "lucide-react";
+import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
+import { ReportView } from "./ReportView";
 
 interface Session {
   productName: string;
@@ -352,6 +355,42 @@ function buildSVG(session: Session): string {
 
 export function DiagnosticCanvas({ session }: DiagnosticCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  async function exportPDF() {
+    if (!reportRef.current) return;
+    setIsExporting(true);
+    
+    try {
+      const pdf = new jsPDF("p", "mm", "a4");
+      const pages = reportRef.current.querySelectorAll(".print-page");
+      
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i] as HTMLElement;
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: "#FAFAF8",
+          windowWidth: 1200 // Ensure consistent layout
+        });
+        
+        const imgData = canvas.toDataURL("image/png");
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, 0, pdfWidth, pdfHeight);
+      }
+      
+      pdf.save(`statik-report-${session.productName.toLowerCase().replace(/\s+/g, "-")}.pdf`);
+    } catch (error) {
+      console.error("Erro ao gerar PDF:", error);
+      alert("Falha ao gerar o PDF. Tente usar a função de imprimir do navegador.");
+    } finally {
+      setIsExporting(false);
+    }
+  }
 
   function exportPNG() {
     const svgEl = containerRef.current?.querySelector("svg");
@@ -397,13 +436,23 @@ export function DiagnosticCanvas({ session }: DiagnosticCanvasProps) {
             Todas as dimensões do STATIK consolidadas num único visual exportável.
           </p>
         </div>
-        <button
-          onClick={exportPNG}
-          className="flex items-center gap-2 px-4 py-2.5 bg-[#534AB7] text-white text-xs font-bold rounded-xl hover:bg-[#3C3489] transition-colors shadow-lg shadow-[#534AB7]/20"
-        >
-          <Download size={13} />
-          Exportar PNG
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={exportPNG}
+            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-100 text-gray-600 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors shadow-sm"
+          >
+            <Download size={13} />
+            PNG
+          </button>
+          <button
+            onClick={exportPDF}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-4 py-2.5 bg-[#534AB7] text-white text-xs font-bold rounded-xl hover:bg-[#3C3489] transition-all shadow-lg shadow-[#534AB7]/20 disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+            Baixar Relatório (PDF)
+          </button>
+        </div>
       </div>
 
       {/* Canvas */}
@@ -412,6 +461,13 @@ export function DiagnosticCanvas({ session }: DiagnosticCanvasProps) {
         className="bg-white border border-gray-100 rounded-2xl overflow-hidden shadow-sm"
         dangerouslySetInnerHTML={{ __html: svgMarkup }}
       />
+      
+      {/* Hidden Report for PDF Generation */}
+      <div className="absolute top-[-9999px] left-[-9999px]">
+        <div ref={reportRef} style={{ width: "1200px" }}>
+          <ReportView session={session} svgMarkup={svgMarkup} />
+        </div>
+      </div>
 
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-2 px-1">

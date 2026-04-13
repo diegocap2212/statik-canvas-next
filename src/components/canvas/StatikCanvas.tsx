@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft, ChevronRight, ArrowLeft,
-  LayoutDashboard, Printer
+  LayoutDashboard, TrendingUp, Loader2, CheckCircle
 } from "lucide-react";
 
 import { TagInput } from "./TagInput";
@@ -15,8 +15,14 @@ import { ClassGrid } from "./ClassGrid";
 import { AiBubble } from "./AiBubble";
 import { DiagnosticCanvas } from "./DiagnosticCanvas";
 
-import { updateSessionData, getAiObservation, generateFinalDiagnosis } from "@/app/actions";
+import { 
+  updateSessionData, 
+  getAiObservation, 
+  generateFinalDiagnosis,
+  getNaveAnalysis 
+} from "@/app/actions";
 import { sessions } from "@/db/schema";
+import { NaveMetrics } from "@/lib/nave";
 
 type Session = typeof sessions.$inferSelect;
 type SessionData = NonNullable<Session["data"]>;
@@ -58,6 +64,8 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
   const [saveError, setSaveError] = useState(false);
   const [aiError, setAiError] = useState(false);
   const [diagnosis, setDiagnosis] = useState(session.diagnosis);
+  const [naveMetrics, setNaveMetrics] = useState<NaveMetrics | null>(null);
+  const [loadingNave, setLoadingNave] = useState(false);
 
   // Auto-save logic
   useEffect(() => {
@@ -80,6 +88,19 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
     setCur(n);
     window.scrollTo({ top: 0, behavior: "smooth" });
     if (n === 8 && !diagnosis) handleGenerateDiagnosis();
+    if (n === 4 && !naveMetrics) handleFetchNave();
+  };
+
+  const handleFetchNave = async () => {
+    setLoadingNave(true);
+    try {
+      const metrics = await getNaveAnalysis();
+      if (metrics) setNaveMetrics(metrics);
+    } catch (e) {
+      console.error("Erro NAVE:", e);
+    } finally {
+      setLoadingNave(false);
+    }
   };
 
   const updateStepVal = (field: string, val: string) => {
@@ -125,7 +146,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
   return (
     <div className="flex min-h-screen bg-[#FAFAF8]">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-100 p-8 sticky top-0 h-screen flex flex-col">
+      <aside className="w-64 bg-white border-r border-gray-100 p-8 sticky top-0 h-screen flex flex-col no-print">
           <div className="mb-12 flex items-center gap-2">
             <div className="bg-[#534AB7] p-1.5 rounded-lg text-white">
                 <LayoutDashboard size={20} />
@@ -169,7 +190,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
 
       {/* Main Content */}
       <main className="flex-1 max-w-4xl mx-auto p-16 pb-40 relative">
-          <div className="flex justify-between items-center mb-12">
+          <div className="flex justify-between items-center mb-12 no-print">
              <button onClick={() => router.push("/dashboard")} className="text-gray-400 hover:text-[#534AB7] flex items-center gap-2 text-sm font-bold transition-colors">
                 <ArrowLeft size={16} /> Voltar ao Dash
              </button>
@@ -191,15 +212,17 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                 exit={{ opacity: 0, scale: 0.98 }}
                 transition={{ duration: 0.3 }}
             >
-                <div className="mb-12">
+                <div className="mb-12 no-print">
                    <p className="text-[11px] font-extrabold text-[#534AB7] uppercase tracking-widest mb-2">ETAPA {cur} DE 8</p>
                    <h1 className="text-4xl font-serif text-gray-900 mb-4">{currentStep?.title}</h1>
                 </div>
 
-                <AiBubble content={aiCache[cur]} loading={loadingAi === cur} />
+                <div className="no-print">
+                  <AiBubble content={aiCache[cur]} loading={loadingAi === cur} />
+                </div>
 
                 {/* Step Content */}
-                <div className="space-y-8">
+                <div className="space-y-8 no-print">
                    {cur === 1 && (
                       <div className="space-y-6">
                          <div className="space-y-2">
@@ -293,6 +316,44 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                                 />
                             </div>
                          </div>
+                         
+                         {/* NAVE Comparison Section */}
+                         <div className="bg-white border border-gray-100 rounded-3xl p-8 shadow-sm">
+                            <div className="flex justify-between items-center mb-6">
+                               <div className="flex items-center gap-3">
+                                  <div className="bg-[#1D9E75] p-2 rounded-lg text-white">
+                                     <TrendingUp size={16} />
+                                  </div>
+                                  <div>
+                                     <h3 className="text-sm font-bold text-gray-900">Validação Cruzada (NAVE)</h3>
+                                     <p className="text-[10px] text-gray-400 uppercase font-bold tracking-tight">Fonte: Quadro OTM</p>
+                                  </div>
+                               </div>
+                               {loadingNave && <Loader2 size={16} className="text-[#534AB7] animate-spin" />}
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-6">
+                               <div className="bg-gray-50 p-4 rounded-2xl flex justify-between items-center">
+                                  <span className="text-xs text-gray-500 font-medium">Lead Time NAVE</span>
+                                  <span className="text-sm font-serif font-bold text-gray-900">
+                                     {naveMetrics ? `${naveMetrics.leadTime} dias` : "..."}
+                                  </span>
+                               </div>
+                               <div className="bg-gray-50 p-4 rounded-2xl flex justify-between items-center">
+                                  <span className="text-xs text-gray-500 font-medium">Throughput NAVE</span>
+                                  <span className="text-sm font-serif font-bold text-gray-900">
+                                     {naveMetrics ? `${naveMetrics.throughput} / sem` : "..."}
+                                  </span>
+                               </div>
+                            </div>
+                            
+                            {naveMetrics && (
+                               <div className="mt-4 flex items-center gap-2 text-[10px] text-[#1D9E75] font-bold">
+                                  <CheckCircle size={10} /> DADOS SINCRONIZADOS COM SUCESSO
+                               </div>
+                            )}
+                         </div>
+
                          <div className="space-y-2">
                             <label className="text-xs font-bold text-gray-400 uppercase">Gargalos evidentes</label>
                             <textarea
@@ -394,7 +455,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                 </div>
 
                 {/* Navigation Bar */}
-                <div className="mt-20 pt-10 border-t border-gray-100 flex justify-between items-center">
+                <div className="mt-20 pt-10 border-t border-gray-100 flex justify-between items-center no-print">
                    {cur > 1 ? (
                       <button onClick={() => goTo(cur - 1)} className="btn btn-ghost">
                          <ChevronLeft size={20} /> Etapa Anterior
@@ -410,9 +471,7 @@ export function StatikCanvas({ session }: StatikCanvasProps) {
                       </button>
                    ) : (
                       <div className="flex gap-4">
-                         <button onClick={() => window.print()} className="btn btn-ghost">
-                            <Printer size={20} /> Imprimir / PDF
-                         </button>
+                         <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Sessão Concluída</p>
                       </div>
                    )}
                 </div>

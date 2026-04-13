@@ -33,7 +33,7 @@ export interface FlowMetrics {
       byType: { [type: string]: number };
     }[] 
   };
-  wip: { stage: string; count: number }[];
+  wip: { stage: string; count: number; keys: string[] }[]; // Added keys for transparency
   demographics: {
     done: { type: string; count: number }[];
     wip: { type: string; count: number }[];
@@ -128,7 +128,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
   const leadTimes: number[] = [];
   const cycleTimes: number[] = [];
   const completedLast12Weeks: { [key: string]: { count: number; leadTimes: number[]; byType: { [t: string]: number } } } = {};
-  const wipStages: { [key: string]: number } = {};
+  const wipStages: { [key: string]: { count: number; keys: string[] } } = {};
   const demoMap = { done: {} as Record<string, number>, wip: {} as Record<string, number>, todo: {} as Record<string, number> };
   
   const weeks: string[] = [];
@@ -146,13 +146,15 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
   let efficiencySamples = 0;
 
   issues.forEach(issue => {
-    // CRITICAL FIX: Exclude subtasks
-    if (issue.fields.issuetype?.subtask) return;
+    // CRITICAL FIX: Exclude subtasks AND Epics
+    const issueType = issue.fields.issuetype?.name || "Task";
+    const isSubtask = issue.fields.issuetype?.subtask || issueType.toLowerCase().includes("sub");
+    if (isSubtask) return;
+    if (issueType.toLowerCase() === "epic") return;
 
     const created = new Date(issue.fields.created);
     const resolved = issue.fields.resolutiondate ? new Date(issue.fields.resolutiondate) : null;
     const statusKey = issue.fields.status.statusCategory.key;
-    const issueType = issue.fields.issuetype?.name || "Task";
 
     // Demographics
     let cat = "todo";
@@ -200,7 +202,9 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
     // 3. WIP
     if (statusKey === "indeterminate") {
       const stage = issue.fields.status.name;
-      wipStages[stage] = (wipStages[stage] || 0) + 1;
+      if (!wipStages[stage]) wipStages[stage] = { count: 0, keys: [] };
+      wipStages[stage].count++;
+      wipStages[stage].keys.push(issue.key);
     }
   });
 
@@ -254,7 +258,7 @@ export function calcMetrics(issues: any[], statusCategoryMap: Record<string, str
         return { label, count: d.count, leadTime: avgLt, byType: d.byType };
       })
     },
-    wip: Object.entries(wipStages).map(([stage, count]) => ({ stage, count })),
+    wip: Object.entries(wipStages).map(([stage, info]) => ({ stage, count: info.count, keys: info.keys })),
     demographics: {
       done: Object.entries(demoMap.done).map(([type, count]) => ({ type, count })),
       wip: Object.entries(demoMap.wip).map(([type, count]) => ({ type, count })),
@@ -293,7 +297,7 @@ export async function generateOpportunities(metrics: FlowMetrics): Promise<Insig
   const userMessage = `Métricas:
   - Lead Time Médio: ${metrics.leadTime.avg.toFixed(1)} dias
   - Throughput (últimas 12 semanas): ${metrics.throughput.weeks.map(w => w.count).join(", ")}
-  - WIP Total (sem subtasks): ${metrics.wip.reduce((acc, curr) => acc + curr.count, 0)} itens
+  - WIP Total (sem subtasks e epics): ${metrics.wip.reduce((acc, curr) => acc + curr.count, 0)} itens
   - Eficiência: ${metrics.flowEfficiency.toFixed(1)}%`;
 
   try {

@@ -69,10 +69,11 @@ export async function fetchJiraIssues() {
       });
     });
 
-    // 2. Fetch issues keys and basic fields using the new JQL Search API
+    // 2. Fetch issue IDs using the new JQL Search API (POST)
+    let searchRes: any;
     while (true) {
       const url = `https://${domain}/rest/api/3/search/jql`;
-      const searchRes = await fetch(url, {
+      searchRes = await fetch(url, {
         method: "POST",
         headers: { 
           "Authorization": getAuthHeader(), 
@@ -93,11 +94,11 @@ export async function fetchJiraIssues() {
         throw new Error(`Jira API Search Error: ${searchRes.statusText} - ${errorBody}`);
       }
 
-      const data = await searchRes.json();
-      issues.push(...data.issues);
+      const searchData: any = await searchRes.json();
+      issues.push(...searchData.issues);
 
-      if (data.isLast || !data.nextPageToken) break;
-      pageToken = data.nextPageToken;
+      if (searchData.isLast || !searchData.nextPageToken) break;
+      pageToken = searchData.nextPageToken;
     }
 
     // 3. Enrich issues with full fields and changelogs (Two-Step process)

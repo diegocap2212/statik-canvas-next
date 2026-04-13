@@ -1,10 +1,12 @@
 import { callGemini } from "./gemini";
 
 function getJiraConfig() {
+  const sanitize = (val?: string) => val?.trim().replace(/^\uFEFF/, "");
+  
   return {
-    domain: process.env.JIRA_DOMAIN || "otmow-team.atlassian.net",
-    email: process.env.JIRA_EMAIL || "suporte@otmow.com",
-    token: process.env.Statik_API || process.env.JIRA_API_TOKEN
+    domain: sanitize(process.env.JIRA_DOMAIN) || "otmow-team.atlassian.net",
+    email: sanitize(process.env.JIRA_EMAIL) || "suporte@otmow.com",
+    token: sanitize(process.env.Statik_API) || sanitize(process.env.JIRA_API_TOKEN)
   };
 }
 

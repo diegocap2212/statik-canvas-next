@@ -7,7 +7,7 @@ export const revalidate = 0;
 export default async function InsightsPage() {
   try {
     const { issues, statusCategoryMap, error } = await fetchJiraIssues();
-    
+    console.log(`InsightsPage: data fetch complete. Error: ${error}, Issues: ${issues?.length || 0}`);
     if (error) {
       return <ErrorState message={error} />;
     }

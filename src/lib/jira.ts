@@ -85,6 +85,7 @@ export async function fetchJiraIssues() {
         body: JSON.stringify({
           jql: "project = OTE ORDER BY created DESC",
           maxResults: maxResults,
+          fields: ["created", "status", "resolutiondate", "summary", "issuetype", "priority"],
           ...(pageToken ? { nextPageToken: pageToken } : {})
         }),
         signal: controller.signal,
@@ -97,6 +98,9 @@ export async function fetchJiraIssues() {
       }
 
       const searchData: any = await searchRes.json();
+      if (!Array.isArray(searchData.issues)) {
+        throw new Error(`Resposta inesperada da API Jira Search: campo 'issues' ausente ou inválido.`);
+      }
       issues.push(...searchData.issues);
 
       if (searchData.isLast || !searchData.nextPageToken) break;
@@ -131,6 +135,9 @@ export async function fetchJiraIssues() {
       await Promise.all(batch.map(enrichIssues));
     }
 
+    if (controller.signal.aborted) {
+      return { issues: [], statusCategoryMap: {}, error: "Timeout ao enriquecer dados do Jira (20s). O projeto pode ter muitas issues." };
+    }
     clearTimeout(timeoutId);
     return { issues, statusCategoryMap, error: null };
   } catch (err: any) {

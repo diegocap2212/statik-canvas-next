@@ -2,7 +2,7 @@
  * Jira API Client & Flow Metrics Calculation Logic
  */
 
-const JIRA_DOMAIN = process.env.JIRA_DOMAIN || "otmow.atlassian.net";
+const JIRA_DOMAIN = process.env.JIRA_DOMAIN || "otmow-team.atlassian.net";
 const JIRA_EMAIL = process.env.JIRA_EMAIL || "suporte@otmow.com";
 const JIRA_API_TOKEN = process.env.Statik_API || process.env.JIRA_API_TOKEN;
 
@@ -46,12 +46,16 @@ export async function fetchJiraIssues() {
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
     // Get Project Statuses first for category mapping
-    const statusRes = await fetch(`https://${JIRA_DOMAIN}/rest/api/3/project/OTE/statuses`, {
+    const statusUrl = `https://${JIRA_DOMAIN}/rest/api/3/project/OTE/statuses`;
+    
+    const statusRes = await fetch(statusUrl, {
       headers: { "Authorization": AUTH_HEADER, "Accept": "application/json" },
       signal: controller.signal
     });
     
-    if (!statusRes.ok) throw new Error(`Falha ao buscar status: ${statusRes.statusText}`);
+    if (!statusRes.ok) {
+      throw new Error(`Falha ao conectar com o Jira (HTTP ${statusRes.status}): ${statusRes.statusText}`);
+    }
     const statusData = await statusRes.json();
     
     // Flatten statuses into a map: name -> statusCategory.key

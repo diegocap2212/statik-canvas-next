@@ -36,6 +36,7 @@ export default function RootLayout({
           <div className="flex gap-8">
             <Link href="/dashboard" className="text-sm font-bold text-gray-400 hover:text-[#534AB7] transition-colors uppercase tracking-wider">Sessões</Link>
             <Link href="/insights" className="text-sm font-bold text-gray-400 hover:text-[#534AB7] transition-colors uppercase tracking-wider">Insights do Fluxo</Link>
+            <Link href="/fluxo" className="text-sm font-bold text-gray-400 hover:text-[#534AB7] transition-colors uppercase tracking-wider">Explicação Fluxo</Link>
           </div>
         </nav>
         <main className="pt-16">

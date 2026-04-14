@@ -1,58 +1,61 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Users, Inbox, Search, Code, CheckCircle, Zap } from "lucide-react";
+import { Info, Diamond, AlertCircle, CheckCircle2, Zap, Users } from "lucide-react";
 
-const LANES = [
+const COLUMNS = [
   {
-    id: "op",
-    name: "Operacional",
-    members: "Jan + João",
-    tags: ["CRM", "Admin"],
-    color: "#3b9eff",
-    cards: [
-      { title: "Onboarding", sub: "Coleta docs via API", status: "backlog" },
-      { title: "Régua cobrança", sub: "Automação judicial", status: "backlog" },
-      { title: "KYC automatizado", sub: "Integração bureau", status: "in-flux" },
-      { title: "Dashboard sacado", sub: "Painel risco", status: "review" },
-      { title: "Monit. NF", sub: "Alerta cancelamento", status: "done" }
-    ]
+    title: "Backlog Squad",
+    tasks: ["Triagem da story", "Entendimento funcional", "Priorização técnica"],
+    exit: ["Story compreendida", "Dependências mapeadas"],
+    color: "blue"
   },
   {
-    id: "ai",
-    name: "IA & Intel.",
-    members: "Jeffrey + TBD",
-    tags: ["IA", "Mkt Intel"],
-    color: "#534AB7",
-    cards: [
-      { title: "Portal transparência", sub: "Scraping automático", status: "backlog" },
-      { title: "Newsfeed licitações", sub: "Mkt Intelligence", status: "backlog" },
-      { title: "Score órgão", sub: "Histórico pagamentos", status: "in-flux" },
-      { title: "Chatbot Olivia", sub: "Fluxo comercial", status: "done" }
-    ]
+    title: "Refinamento",
+    tasks: ["Quebra técnica", "Definição de subtasks", "Estimativa de esforço"],
+    exit: ["DOR individual OK", "Escopo técnico fechado"],
+    color: "blue"
   },
   {
-    id: "fin",
-    name: "Financial",
-    members: "Víor + contratação",
-    tags: ["Financial Core"],
-    color: "#EF9F27",
-    cards: [
-      { title: "Netsuite", sub: "Urgente · debêntures", status: "backlog", urgent: true },
-      { title: "Motor crédito", sub: "Engine precificação", status: "backlog" },
-      { title: "Concil. FIDC", sub: "Plataforma externa", status: "in-flux" }
-    ]
+    title: "Puxar para Dev",
+    isGate: true,
+    criteria: [
+      "Story refinada (DOR)",
+      "Ambiente preparado",
+      "WIP da squad liberado",
+      "Prioridade definida"
+    ],
+    color: "teal"
   },
   {
-    id: "exp",
-    name: "Expansão",
-    members: "Ricardo + Pedro",
-    tags: ["Roadmap", "Fomento"],
-    color: "#D85A30",
-    cards: [
-      { title: "Fomento v1", sub: "Pré-performance", status: "backlog" },
-      { title: "Roadmap all-in-one", sub: "Conta + crédito + intel", status: "in-flux" }
-    ]
+    title: "Em Desenv.",
+    tasks: ["Coding & Unit Tests", "Pair Programming", "Daily sync"],
+    warning: "Limite WIP: 2 por DEVs",
+    color: "gray"
+  },
+  {
+    title: "Code Review / QA",
+    tasks: ["Peer review", "Merge scripts", "Testes funcionais"],
+    exit: ["Aprovado pelos pares", "Testes unitários OK"],
+    color: "gray"
+  },
+  {
+    title: "Homologação",
+    tasks: ["Validação PO", "Demo para stakeholders", "Ajustes de UX"],
+    exit: ["Sign-off funcional", "UAT aprovado"],
+    color: "gray"
+  },
+  {
+    title: "Pronto p/ Prod",
+    tasks: ["Release notes", "Update documentação", "Merge para master"],
+    exit: ["Pronto para deploy", "Métricas de validação"],
+    color: "gray"
+  },
+  {
+    title: "Concluído",
+    tasks: ["Monitoramento prod", "Coleta de feedback", "Fix pós-release"],
+    exit: ["Valor entregue", "Monitoramento OK"],
+    color: "green"
   }
 ];
 
@@ -63,136 +66,113 @@ export function KanbanSection() {
         <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-3 py-1 bg-gray-100 rounded-full">
           Nível FL 1
         </div>
-        <h2 className="text-3xl font-serif text-gray-900">Kanban Operacional</h2>
+        <h2 className="text-3xl font-serif text-gray-900">Kanban Operacional & Entrega</h2>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-[1fr_auto_1.5fr] gap-8 items-start">
-        
-        {/* UPSTREAM */}
-        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
-          <div className="flex items-center gap-3 mb-8 pb-4 border-b border-gray-50">
-            <div className="p-2 bg-blue-50 text-[#3b9eff] rounded-xl">
-              <Inbox size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 font-serif">Upstream</h3>
-              <p className="text-xs text-gray-400 font-medium">Triagem e refinamento de demandas</p>
-            </div>
+      <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm overflow-hidden relative">
+        <div className="flex items-center gap-3 mb-8 pb-6 border-b border-gray-50">
+          <div className="p-2 bg-blue-50 text-[#3b9eff] rounded-xl">
+            <Users size={20} />
           </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Fluxo de Entrega Técnica</h3>
+            <p className="text-sm text-gray-400 font-medium">As subtasks e histórias são executadas pelas squads seguindo este padrão horizontal.</p>
+          </div>
+          
+          <div className="ml-auto flex items-center gap-2 bg-[#3b9eff]/5 px-4 py-2 rounded-2xl border border-[#3b9eff]/10">
+            <div className="w-2 h-2 bg-[#3b9eff] rounded-full animate-pulse" />
+            <span className="text-[10px] font-bold text-[#3b9eff] uppercase tracking-wider">Zona Squad: Delivery & QA</span>
+          </div>
+        </div>
 
-          <div className="space-y-4">
-            {[
-              { title: "Entrada", wip: "Livre", icon: Inbox },
-              { title: "Triagem PO", wip: "WIP 5", icon: Search },
-              { title: "Refinamento", wip: "WIP 3", icon: Code },
-              { title: "Pronto p/ Squad", wip: "WIP 5", icon: CheckCircle, highlight: true }
-            ].map((step, i) => (
-              <div key={step.title} className={`p-4 rounded-2xl border ${step.highlight ? 'bg-[#1D9E75]/5 border-[#1D9E75]/20' : 'bg-gray-50/50 border-gray-100'}`}>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <step.icon size={14} className={step.highlight ? 'text-[#1D9E75]' : 'text-gray-400'} />
-                    <span className="text-xs font-bold text-gray-900 uppercase tracking-wider">{step.title}</span>
-                  </div>
-                  <span className="text-[9px] font-bold text-gray-400 px-2 py-0.5 bg-white border border-gray-100 rounded-md">
-                    {step.wip}
-                  </span>
-                </div>
-                <div className="h-1 w-full bg-gray-100 rounded-full overflow-hidden">
+        <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 scrollbar-hide">
+          {COLUMNS.map((col, idx) => (
+            <motion.div 
+              key={col.title}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: idx * 0.05 }}
+              className={`flex-shrink-0 w-60 rounded-3xl p-5 border transition-all duration-300 ${
+                col.isGate 
+                  ? "bg-[#1D9E75]/5 border-[#1D9E75]/20 shadow-lg shadow-[#1D9E75]/5" 
+                  : col.color === "green"
+                  ? "bg-green-50/50 border-green-100"
+                  : "bg-gray-50/50 border-gray-100 hover:bg-white hover:border-[#3b9eff]/20 hover:shadow-xl hover:shadow-[#3b9eff]/5"
+              }`}
+            >
+              <div className={`text-[9px] font-bold uppercase tracking-widest mb-4 inline-block px-2 py-0.5 rounded ${
+                col.color === "blue" ? "text-[#3b9eff] bg-blue-50" : 
+                col.color === "teal" ? "text-[#1D9E75] bg-teal-50" :
+                col.color === "green" ? "text-green-600 bg-green-100" : "text-gray-400 bg-gray-100"
+              }`}>
+                {col.isGate ? "Quality Gate" : `Etapa ${idx + 1}`}
+              </div>
+
+              <h4 className={`text-sm font-bold mb-4 ${col.isGate ? "text-[#1D9E75]" : "text-gray-900"}`}>
+                {col.title}
+              </h4>
+
+              {col.isGate && (
+                <div className="flex flex-col items-center py-4 mb-4 bg-teal-50/50 rounded-2xl border border-teal-100/50">
                   <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(i + 1) * 25}%` }}
-                    className={`h-full ${step.highlight ? 'bg-[#1D9E75]' : 'bg-gray-300'}`}
+                    animate={{ scale: [1, 1.1, 1], rotate: [45, 45, 45] }}
+                    transition={{ repeat: Infinity, duration: 2 }}
+                    className="w-8 h-8 bg-[#1D9E75] rounded-sm transform shadow-lg shadow-teal-500/30 mb-2" 
                   />
+                  <span className="text-[9px] font-bold text-[#1D9E75] uppercase tracking-tighter">Início do Pull</span>
                 </div>
-              </div>
-            ))}
-          </div>
+              )}
 
-          <div className="mt-8 flex flex-wrap gap-2 pt-6 border-t border-gray-50">
-            <span className="px-3 py-1 bg-red-50 text-red-500 rounded-full text-[9px] font-bold uppercase tracking-wider border border-red-100">Expedite</span>
-            <span className="px-3 py-1 bg-amber-50 text-amber-600 rounded-full text-[9px] font-bold uppercase tracking-wider border border-amber-100">Fixed Date</span>
-            <span className="px-3 py-1 bg-blue-50 text-blue-500 rounded-full text-[9px] font-bold uppercase tracking-wider border border-blue-100">Standard</span>
-            <span className="px-3 py-1 bg-purple-50 text-[#534AB7] rounded-full text-[9px] font-bold uppercase tracking-wider border border-[#534AB7]/10">Kaizen</span>
-          </div>
-        </div>
-
-        {/* CONNECTOR */}
-        <div className="flex flex-col items-center justify-center p-4">
-          <div className="h-12 w-px bg-gray-100" />
-          <div className="px-4 py-2 bg-[#1D9E75]/10 border border-[#1D9E75]/20 rounded-2xl text-[10px] font-bold text-[#1D9E75] uppercase tracking-widest vertical-rl rotate-180 whitespace-nowrap">
-            Pull Strategy
-          </div>
-          <ArrowRight className="text-[#1D9E75] my-4" />
-          <div className="h-full w-px bg-gray-100" />
-        </div>
-
-        {/* DOWNSTREAM */}
-        <div className="bg-white border border-gray-100 rounded-[2.5rem] p-8 shadow-sm">
-           <div className="flex items-center gap-3 mb-8 pb-4 border-b border-gray-50">
-            <div className="p-2 bg-teal-50 text-[#1D9E75] rounded-xl">
-              <Users size={20} />
-            </div>
-            <div>
-              <h3 className="font-bold text-gray-900 font-serif">Downstream</h3>
-              <p className="text-xs text-gray-400 font-medium">1 Board · 4 Raias · Sistema Puxado</p>
-            </div>
-            <div className="ml-auto bg-gray-50 px-3 py-1 rounded-full text-[9px] font-bold text-gray-400 uppercase tracking-widest">
-              WIP Limit Active
-            </div>
-          </div>
-
-          <div className="overflow-x-auto">
-            <div className="min-w-[600px]">
-              <div className="grid grid-cols-[180px_1fr_1fr_1fr_1fr] gap-4 mb-4">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Squad / Raia</div>
-                {['Backlog', 'Flow (WIP 2)', 'Review (WIP 1)', 'Done'].map(h => (
-                  <div key={h} className="text-[10px] font-bold text-gray-400 uppercase tracking-widest text-center">{h}</div>
-                ))}
-              </div>
-
-              <div className="space-y-6">
-                {LANES.map(lane => (
-                  <div key={lane.id} className="grid grid-cols-[180px_1fr_1fr_1fr_1fr] gap-4">
-                    <div className="flex flex-col gap-2">
-                       <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: lane.color }} />
-                        <span className="text-sm font-bold text-gray-900 leading-none">{lane.name}</span>
-                      </div>
-                      <span className="text-[10px] text-gray-400 font-medium">{lane.members}</span>
-                      <div className="flex gap-1">
-                        {lane.tags.map(t => (
-                          <span key={t} className="text-[8px] font-bold bg-gray-50 text-gray-400 px-1.5 py-0.5 rounded-md uppercase">{t}</span>
-                        ))}
-                      </div>
-                    </div>
-
-                    {['backlog', 'in-flux', 'review', 'done'].map(status => (
-                      <div key={status} className={`p-2 rounded-2xl min-h-[100px] border flex flex-col gap-2 ${status === 'done' ? 'bg-green-50/30 border-green-100/50' : 'bg-gray-50/50 border-gray-100/50'}`}>
-                        {lane.cards.filter(c => c.status === status).map((card, i) => (
-                          <motion.div 
-                            key={card.title}
-                            whileHover={{ y: -2 }}
-                            className={`p-2 rounded-xl border bg-white shadow-sm cursor-default ${card.urgent ? 'border-red-200' : 'border-gray-50'}`}
-                          >
-                            <div className="flex items-start justify-between gap-1 mb-1">
-                              <span className="text-[10px] font-bold text-gray-800 leading-tight">
-                                {card.urgent && <span className="text-red-500 mr-1">⚠</span>}
-                                {card.title}
-                              </span>
-                              {card.urgent && <Zap size={10} className="text-red-500 fill-current" />}
-                            </div>
-                            <p className="text-[9px] text-gray-400 font-medium leading-tight">{card.sub}</p>
-                          </motion.div>
-                        ))}
-                      </div>
-                    ))}
+              <div className="space-y-4">
+                {col.tasks && (
+                  <div>
+                    <span className="text-[8px] font-bold text-gray-300 uppercase tracking-widest block mb-2">Processo Operacional</span>
+                    <ul className="space-y-1.5">
+                      {col.tasks.map(t => (
+                        <li key={t} className="text-[11px] text-gray-500 leading-tight flex gap-1.5">
+                          <span className="text-[#3b9eff] opacity-40 mt-0.5 font-bold">·</span> {t}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
+                )}
 
+                {col.exit && (
+                  <div>
+                    <span className="text-[8px] font-bold text-gray-300 uppercase tracking-widest block mb-1.5">Exit Criteria</span>
+                    <ul className="space-y-1">
+                      {col.exit.map(e => (
+                        <li key={e} className="text-[10px] text-gray-400 font-medium flex items-center gap-1.5 bg-white/50 p-1 rounded-md">
+                          <CheckCircle2 size={10} className="text-gray-300" /> {e}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {col.criteria && (
+                  <ul className="space-y-2">
+                    {col.criteria.map(c => (
+                      <li key={c} className="text-[10px] text-[#1D9E75] font-bold flex items-center gap-2 bg-white/80 p-2 rounded-xl border border-teal-100">
+                        <Diamond size={10} fill="currentColor" /> {c}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {col.warning && (
+                  <div className="p-3 bg-red-50 border border-red-100 rounded-xl mt-4">
+                    <div className="flex items-center gap-2 text-red-500 mb-1">
+                      <AlertCircle size={14} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider">WIP Limit</span>
+                    </div>
+                    <p className="text-[10px] text-red-700 font-medium leading-snug">{col.warning}</p>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </section>
   );
